@@ -1,0 +1,22 @@
+{% comment %}
+Notify Me snippet for merchants to include in their theme.
+Usage:
+- Replace YOUR_APP_URL with your app URL (e.g. https://your-app.ngrok.io)
+- Include this snippet in the theme where you want the button to appear, for example in product.liquid:
+  {% include 'notify-me' %}
+
+This snippet injects the widget script served by your app.
+{% endcomment %}
+
+<script>
+  (function(){
+    var appUrl = '{{ "YOUR_APP_URL" }}';
+    var script = document.createElement('script');
+    script.src = appUrl.replace(/\/$/, '') + '/notify-widget.js';
+    script.async = true;
+    script.onload = function(){
+      try{ window.NotifyMeWidget && window.NotifyMeWidget.init({ shop: '{{ shop.domain }}' }); }catch(e){}
+    };
+    document.head.appendChild(script);
+  })();
+</script>

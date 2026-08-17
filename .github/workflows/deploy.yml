@@ -1,0 +1,77 @@
+name: Deploy to cPanel
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type DEPLOY to confirm you want to deploy to production"
+        required: true
+      environment:
+        description: "Target environment"
+        required: false
+        default: "production"
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify confirmation input
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "DEPLOY" ]; then
+            echo "Confirmation text did not match 'DEPLOY'. Aborting deploy."
+            exit 1
+          fi
+          echo "Confirmed. Deploying to ${{ github.event.inputs.environment }}."
+
+  build-and-deploy:
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.0"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build app
+        run: npm run build
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Prepare deploy artifact
+        run: |
+          mkdir -p deploy-artifact
+          cp -r build deploy-artifact/
+          cp server.cjs deploy-artifact/
+          cp package.json deploy-artifact/
+          cp package-lock.json deploy-artifact/
+          cp -r prisma deploy-artifact/
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.CPANEL_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${{ secrets.CPANEL_SSH_PORT }}" "${{ secrets.CPANEL_SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload artifact to cPanel
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.CPANEL_SSH_PORT }}" \
+            deploy-artifact/ \
+            "${{ secrets.CPANEL_SSH_USER }}@${{ secrets.CPANEL_SSH_HOST }}:${{ secrets.CPANEL_APP_DIR }}/"
+
+      - name: Install prod deps, run migrations, restart app
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${{ secrets.CPANEL_SSH_PORT }}" \
+            "${{ secrets.CPANEL_SSH_USER }}@${{ secrets.CPANEL_SSH_HOST }}" \
+            "cd '${{ secrets.CPANEL_APP_DIR }}' && npm ci --omit=dev && npx prisma migrate deploy && mkdir -p tmp && touch tmp/restart.txt"
+
+      - name: Clean up SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
