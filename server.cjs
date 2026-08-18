@@ -5,5 +5,11 @@
 // server bundle. The CLI already reads `process.env.PORT`, which cPanel
 // injects automatically, so no extra wiring is needed for that.
 process.env.NODE_ENV = process.env.NODE_ENV || "production";
-process.argv[2] = require("path").join(__dirname, "build", "server", "index.js");
-require("@react-router/serve/dist/cli.js");
+const path = require("path");
+process.argv[2] = path.join(__dirname, "build", "server", "index.js");
+// @react-router/serve's package.json "exports" field only allows importing
+// "./package.json" from outside the package, so a bare
+// "@react-router/serve/dist/cli.js" specifier is rejected. Requiring by
+// filesystem path bypasses that (exports only gates bare-specifier subpath
+// resolution, not direct file paths).
+require(path.join(__dirname, "node_modules", "@react-router/serve", "dist", "cli.js"));
