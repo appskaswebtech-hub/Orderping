@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "31f0727e5e0520bfd9432d3433eea552"
-application_url = "https://example.com"
+application_url = "https://whatsnotify.kaswebtechsolutions.com/"
 embedded = true
 name = "OrderPing"
 
@@ -54,13 +54,12 @@ api_version = "2026-10"
   shop_deletion_url = "/webhooks/shop/redact"
 
 [app_proxy]
-url = "https://example.com/proxy"
+url = "https://whatsnotify.kaswebtechsolutions.com/proxy"
 subpath = "notify"
 prefix = "apps"
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [ "https://whatsnotify.kaswebtechsolutions.com/api/auth" ]
 
 [build]
-include_config_on_deploy = true
 automatically_update_urls_on_dev = true

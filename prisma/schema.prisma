@@ -55,7 +55,7 @@ model AppSetting {
   id        String   @id @default(cuid())
   shop      String   @db.VarChar(191)
   key       String   @db.VarChar(191)
-  value     String?
+  value     String?  @db.Text
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

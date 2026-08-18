@@ -4,8 +4,9 @@
 // delegates to @react-router/serve's own CLI, pointing it at the built
 // server bundle. The CLI already reads `process.env.PORT`, which cPanel
 // injects automatically, so no extra wiring is needed for that.
-process.env.NODE_ENV = process.env.NODE_ENV || "production";
 const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
+process.env.NODE_ENV = process.env.NODE_ENV || "production";
 process.argv[2] = path.join(__dirname, "build", "server", "index.js");
 // @react-router/serve's package.json "exports" field only allows importing
 // "./package.json" from outside the package, so a bare
