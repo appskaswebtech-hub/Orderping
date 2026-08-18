@@ -151,13 +151,13 @@ export default function Settings() {
             <Field
               label="Template name"
               name="META_TEMPLATE_NAME"
-              defaultValue={settings.META_TEMPLATE_NAME || "order_status"}
+              defaultValue={settings.META_TEMPLATE_NAME || "order_confirmation_link"}
               help="Must exactly match an approved template in Meta Business Manager."
             />
             <Field
               label="Template language code"
               name="META_TEMPLATE_LANGUAGE"
-              defaultValue={settings.META_TEMPLATE_LANGUAGE || "en"}
+              defaultValue={settings.META_TEMPLATE_LANGUAGE || "en_US"}
               help="e.g. en, en_US — must match the template's language exactly."
             />
           </s-stack>
