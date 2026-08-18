@@ -190,14 +190,18 @@ async function handleOrderCreate(request) {
     enabled = settings.ENABLED === "true";
     requireOptIn = settings.REQUIRE_CUSTOMER_OPT_IN === "true";
     defaultCountry = settings.DEFAULT_COUNTRY || undefined;
+    // TEMPORARY: falls back to the developer's own WhatsApp credentials (set via
+    // env vars) for stores that haven't configured their own yet, so Shopify's
+    // reviewer can test the app without needing per-store setup. Remove these
+    // env fallbacks once the app is approved and merchants configure their own.
     credentials = {
-      accessToken: settings.META_ACCESS_TOKEN || undefined,
-      phoneNumberId: settings.META_PHONE_NUMBER_ID || undefined,
-      apiVersion: settings.META_API_VERSION || undefined,
+      accessToken: settings.META_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN || undefined,
+      phoneNumberId: settings.META_PHONE_NUMBER_ID || process.env.META_PHONE_NUMBER_ID || undefined,
+      apiVersion: settings.META_API_VERSION || process.env.META_API_VERSION || undefined,
     };
     template = {
-      name: settings.META_TEMPLATE_NAME || "order_status",
-      language: settings.META_TEMPLATE_LANGUAGE || "en",
+      name: settings.META_TEMPLATE_NAME || process.env.META_TEMPLATE_NAME || "order_status",
+      language: settings.META_TEMPLATE_LANGUAGE || process.env.META_TEMPLATE_LANGUAGE || "en",
     };
     console.log(`[order-ping] checkpoint settings_loaded enabled=${enabled} requireOptIn=${requireOptIn}`);
 
