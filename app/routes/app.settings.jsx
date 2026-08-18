@@ -25,10 +25,6 @@ export const action = async ({ request }) => {
   const shop = session?.shop || admin?.shop || "";
   const form = await request.formData();
 
-  const accessToken = form.get("META_ACCESS_TOKEN");
-  const phoneNumberId = form.get("META_PHONE_NUMBER_ID");
-  const wabaId = form.get("META_WABA_ID");
-  const apiVersion = form.get("META_API_VERSION");
   const templateName = form.get("META_TEMPLATE_NAME");
   const templateLanguage = form.get("META_TEMPLATE_LANGUAGE");
   const enabled = form.get("ENABLED") === "on" ? "true" : "false";
@@ -49,8 +45,7 @@ export const action = async ({ request }) => {
 
   if (actionType === "test") {
     try {
-      const tokenToTest = accessToken && accessToken !== "*****" ? accessToken : undefined;
-      await testConnection({ accessToken: tokenToTest, phoneNumberId, apiVersion });
+      await testConnection({});
       return new Response(JSON.stringify({ ok: true }), { status: 200 });
     } catch (err) {
       return new Response(JSON.stringify({ ok: false, error: err?.body || err?.message || String(err) }), { status: 400 });
@@ -58,16 +53,10 @@ export const action = async ({ request }) => {
   }
 
   // Save settings
-  await upsert("META_PHONE_NUMBER_ID", phoneNumberId);
-  await upsert("META_WABA_ID", wabaId);
-  await upsert("META_API_VERSION", apiVersion);
   await upsert("META_TEMPLATE_NAME", templateName);
   await upsert("META_TEMPLATE_LANGUAGE", templateLanguage);
   await upsert("ENABLED", enabled);
   await upsert("REQUIRE_CUSTOMER_OPT_IN", requireOptIn);
-  if (accessToken && accessToken !== "*****") {
-    await upsert("META_ACCESS_TOKEN", accessToken);
-  }
 
   return new Response(JSON.stringify({ saved: true }), { status: 200, headers: { "Content-Type": "application/json" } });
 };
@@ -118,14 +107,7 @@ export default function Settings() {
   const fetcher = useFetcher();
   const { settings } = useLoaderData();
 
-  const fieldNames = [
-    "META_ACCESS_TOKEN",
-    "META_PHONE_NUMBER_ID",
-    "META_WABA_ID",
-    "META_API_VERSION",
-    "META_TEMPLATE_NAME",
-    "META_TEMPLATE_LANGUAGE",
-  ];
+  const fieldNames = ["META_TEMPLATE_NAME", "META_TEMPLATE_LANGUAGE"];
 
   const buildFormData = () => {
     const form = new FormData();
@@ -150,7 +132,6 @@ export default function Settings() {
     fetcher.submit(form, { method: "post" });
   };
 
-  const isConfigured = !!(settings.META_ACCESS_TOKEN && settings.META_PHONE_NUMBER_ID);
   const isEnabled = settings.ENABLED === "true";
   const isWorking = fetcher.state !== "idle";
 
@@ -158,42 +139,10 @@ export default function Settings() {
     <s-page heading="WhatsApp settings">
       <s-section heading="Status">
         <s-stack direction="inline" gap="base">
-          <s-badge tone={isConfigured ? "success" : "warning"}>
-            {isConfigured ? "Credentials configured" : "Not configured"}
-          </s-badge>
           <s-badge tone={isEnabled ? "success" : "neutral"}>
             {isEnabled ? "Notifications enabled" : "Notifications disabled"}
           </s-badge>
         </s-stack>
-      </s-section>
-
-      <s-section heading="Meta WhatsApp credentials">
-        <div style={cardStyle}>
-          <s-stack direction="block" gap="loose">
-            <Field
-              label="Access token"
-              name="META_ACCESS_TOKEN"
-              defaultValue={settings.META_ACCESS_TOKEN || ""}
-              help="From Meta Business Manager. Won't be shown again after saving."
-            />
-            <Field
-              label="Phone number ID"
-              name="META_PHONE_NUMBER_ID"
-              defaultValue={settings.META_PHONE_NUMBER_ID || ""}
-              help="The Cloud API phone number ID that sends the messages."
-            />
-            <Field
-              label="WhatsApp Business Account ID (optional)"
-              name="META_WABA_ID"
-              defaultValue={settings.META_WABA_ID || ""}
-            />
-            <Field
-              label="API version"
-              name="META_API_VERSION"
-              defaultValue={settings.META_API_VERSION || "v17.0"}
-            />
-          </s-stack>
-        </div>
       </s-section>
 
       <s-section heading="Message template">
