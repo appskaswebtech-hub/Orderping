@@ -173,7 +173,12 @@ async function handleOrderCreate(request) {
   const order = payload;
   const shopifyOrderId = String(order.id ?? order.order_id ?? "");
   const orderNumber = String(order.order_number ?? order.name ?? "");
-  const customerName = (order.customer && `${order.customer.first_name || ""} ${order.customer.last_name || ""}`).trim() || null;
+  const nameFrom = (obj) => (obj && `${obj.first_name || ""} ${obj.last_name || ""}`.trim()) || "";
+  const customerName =
+    nameFrom(order.billing_address) ||
+    nameFrom(order.shipping_address) ||
+    nameFrom(order.customer) ||
+    null;
   const rawPhone = getPhoneFromOrder(order);
   let defaultCountry;
   let credentials = {};
