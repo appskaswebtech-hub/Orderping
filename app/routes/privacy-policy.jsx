@@ -9,6 +9,8 @@ const HTML = `<!DOCTYPE html>
   h1 { font-size: 28px; }
   h2 { font-size: 20px; margin-top: 32px; }
   p, li { font-size: 15px; }
+  footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 13px; color: #666; text-align: center; }
+  footer a { color: #666; }
 </style>
 </head>
 <body>
@@ -56,10 +58,14 @@ const HTML = `<!DOCTYPE html>
 
 <h2>7. Contact Us</h2>
 <p>If you have questions about this Privacy Policy or wish to request access to, or deletion of, your data, please contact us at:</p>
-<p><strong>Email:</strong> [SUPPORT_EMAIL]</p>
+<p><strong>Email:</strong> apps.kaswebtech@gmail.com</p>
 
 <h2>8. Changes to This Policy</h2>
 <p>We may update this Privacy Policy from time to time. Changes will be posted on this page with an updated "Last updated" date.</p>
+
+<footer>
+  <p>OrderPing by KasWebtech Solutions Pvt. Ltd. &middot; &copy; 2026 &middot; <a href="mailto:apps.kaswebtech@gmail.com">apps.kaswebtech@gmail.com</a></p>
+</footer>
 
 </body>
 </html>
