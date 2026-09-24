@@ -224,7 +224,7 @@ export default function Settings() {
     fetcher.submit(form, { method: "post" });
   };
 
-  const isEnabled = settings.ENABLED === "true";
+  const isEnabled = settings.ENABLED !== "false";
   const isWorking = fetcher.state !== "idle";
 
   return (
@@ -293,7 +293,7 @@ export default function Settings() {
                 <Field
                   label="Template name"
                   name="META_TEMPLATE_NAME"
-                  defaultValue={settings.META_TEMPLATE_NAME || "order_confirmation_link"}
+                  defaultValue={settings.META_TEMPLATE_NAME || "order_confirmation_image"}
                   help="Must exactly match an approved template in Meta Business Manager."
                 />
                 <Field

@@ -243,7 +243,7 @@
     const analytics = stats || { totalNotifications: 0, sent: 0, failed: 0, pending: 0 };
     // TEMPORARILY UNUSED — see the commented-out banner below.
     const isConfigured = !!(settings?.META_ACCESS_TOKEN && settings?.META_PHONE_NUMBER_ID);
-    const isEnabled = settings?.ENABLED === "true";
+    const isEnabled = settings?.ENABLED !== "false";
 
     return (
       <s-page heading="OrderPing">

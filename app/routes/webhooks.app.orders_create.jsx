@@ -192,7 +192,7 @@ async function handleOrderCreate(request) {
     const rows = await db.appSetting.findMany({ where: { shop } });
     const settings = Object.fromEntries(rows.map((r) => [r.key, r.value]));
 
-    enabled = settings.ENABLED === "true";
+    enabled = settings.ENABLED !== "false";
     requireOptIn = settings.REQUIRE_CUSTOMER_OPT_IN === "true";
     defaultCountry = settings.DEFAULT_COUNTRY || undefined;
     // TEMPORARY: falls back to the developer's own WhatsApp credentials (set via
