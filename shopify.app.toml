@@ -48,6 +48,18 @@ api_version = "2026-10"
   uri = "/webhooks/app/orders_create"
   topics = [ "orders/create" ]
 
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/fulfillments_create"
+  topics = [ "fulfillments/create" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/fulfillments_update"
+  topics = [ "fulfillments/update" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/refunds_create"
+  topics = [ "refunds/create" ]
+
   [webhooks.privacy_compliance]
   customer_data_request_url = "/webhooks/customers/data_request"
   customer_deletion_url = "/webhooks/customers/redact"
