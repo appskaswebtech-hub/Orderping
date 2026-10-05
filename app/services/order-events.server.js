@@ -80,10 +80,15 @@ export async function sendOrderStatusNotification({
   const customerName = getCustomerNameFromOrder(order);
   const rawPhone = getPhoneFromOrder(order);
 
+  // upsert, not create: Shopify retries webhook deliveries, and a retry hitting
+  // this same failure path again would violate the unique constraint on
+  // (shop, shopifyOrderId, notificationType) if this were a plain create().
   const logFailure = (errorMessage, customerPhone = null) =>
     db.notificationLog
-      .create({
-        data: { shop, shopifyOrderId, orderNumber, customerName, customerPhone, notificationType, status: "failed", errorMessage },
+      .upsert({
+        where: { shop_shopifyOrderId_notificationType: { shop, shopifyOrderId, notificationType } },
+        update: { customerName, customerPhone, status: "failed", errorMessage },
+        create: { shop, shopifyOrderId, orderNumber, customerName, customerPhone, notificationType, status: "failed", errorMessage },
       })
       .catch(() => null);
 

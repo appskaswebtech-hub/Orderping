@@ -211,8 +211,10 @@ async function handleOrderCreate(request) {
     console.log(`[order-ping] checkpoint settings_loaded enabled=${enabled} requireOptIn=${requireOptIn}`);
 
     if (!enabled) {
-      await db.notificationLog.create({
-        data: {
+      await db.notificationLog.upsert({
+        where: { shop_shopifyOrderId_notificationType: { shop, shopifyOrderId, notificationType: "whatsapp" } },
+        update: { customerName, status: "failed", errorMessage: "disabled_by_shop" },
+        create: {
           shop,
           shopifyOrderId,
           orderNumber,
@@ -252,8 +254,10 @@ async function handleOrderCreate(request) {
         }
 
         if (!acceptedMarketing && !whatsappOptIn && !customerOptInFound) {
-        await db.notificationLog.create({
-          data: {
+        await db.notificationLog.upsert({
+          where: { shop_shopifyOrderId_notificationType: { shop, shopifyOrderId, notificationType: "whatsapp" } },
+          update: { customerName, customerPhone: rawPhone || null, status: "failed", errorMessage: "customer_no_opt_in" },
+          create: {
             shop,
             shopifyOrderId,
             orderNumber,
@@ -271,8 +275,10 @@ async function handleOrderCreate(request) {
   } catch (err) {
     // Settings/opt-in lookup failed: fail closed rather than sending with unknown eligibility.
     console.error(`[order-ping] eligibility_check_error shop=${shop} order=${shopifyOrderId}`, err);
-    await db.notificationLog.create({
-      data: {
+    await db.notificationLog.upsert({
+      where: { shop_shopifyOrderId_notificationType: { shop, shopifyOrderId, notificationType: "whatsapp" } },
+      update: { customerName, status: "failed", errorMessage: "eligibility_check_error" },
+      create: {
         shop,
         shopifyOrderId,
         orderNumber,
@@ -289,8 +295,10 @@ async function handleOrderCreate(request) {
   console.log(`[order-ping] checkpoint phone_extracted rawPhone_present=${!!rawPhone}`);
 
   if (!rawPhone) {
-    await db.notificationLog.create({
-      data: {
+    await db.notificationLog.upsert({
+      where: { shop_shopifyOrderId_notificationType: { shop, shopifyOrderId, notificationType: "whatsapp" } },
+      update: { customerName, status: "failed", errorMessage: "no_customer_phone" },
+      create: {
         shop,
         shopifyOrderId,
         orderNumber,
@@ -308,8 +316,10 @@ async function handleOrderCreate(request) {
   const phone = normalizePhone(rawPhone, defaultCountry);
   console.log(`[order-ping] checkpoint phone_normalized ok=${!!phone}`);
   if (!phone) {
-    await db.notificationLog.create({
-      data: {
+    await db.notificationLog.upsert({
+      where: { shop_shopifyOrderId_notificationType: { shop, shopifyOrderId, notificationType: "whatsapp" } },
+      update: { customerName, customerPhone: rawPhone, status: "failed", errorMessage: "invalid_phone_format" },
+      create: {
         shop,
         shopifyOrderId,
         orderNumber,
