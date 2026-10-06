@@ -1,10 +1,12 @@
 import { useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
+import { requireActivePlan } from "../services/billing.server";
 import db from "../db.server";
 
 export const loader = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  const { admin, billing, session } = await authenticate.admin(request);
+  await requireActivePlan({ admin, billing });
   const shop = session?.shop;
 
   const url = new URL(request.url);

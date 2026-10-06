@@ -16,21 +16,56 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  const { billing } = await authenticate.admin(request);
-  // Only reachable from this page's own form, which only renders the
-  // subscribe button for non-dev stores, but billing.request() would reject
-  // the wrong plan name anyway if that ever changed.
+  const { admin, billing } = await authenticate.admin(request);
+  const isDevStore = await isDevelopmentStore(admin);
+  // Dev stores are free and never reach the Subscribe button, but guard the
+  // action itself too, in case of a direct/replayed POST.
+  if (isDevStore) return new Response(null, { status: 400 });
+
   await billing.request({ plan: PRO_PLAN });
 };
 
 const COLORS = { sent: "#1FA97B", gold: "#B4791E", goldSoft: "#FBF0DC", goldBorder: "#EED9AE" };
+const pageBg = { background: "linear-gradient(180deg, #FDFAF4 0%, #F8F1E4 100%)", minHeight: "100%", padding: "4px 0" };
 const cardBase = {
   borderRadius: 16,
   background: "#fff",
   boxShadow: "0 1px 2px rgba(16,24,40,0.04), 0 1px 12px rgba(16,24,40,0.05)",
   border: "1px solid rgba(16,24,40,0.04)",
-  padding: "24px 28px",
+  padding: "28px 32px",
 };
+
+const FEATURES = [
+  "Automatic WhatsApp order confirmations, with a product image and order link",
+  "Shipped, out for delivery, and delivered status updates",
+  "Refund initiated, order cancelled, and payment confirmed notifications",
+  "Customizable message template and language",
+  "Full notification history log — every send attempt and its status",
+  "Customer opt-in controls",
+];
+
+function CheckIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={COLORS.sent} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
+function FeatureList() {
+  return (
+    <ul style={{ listStyle: "none", padding: 0, margin: "18px 0 0", display: "flex", flexDirection: "column", gap: 12 }}>
+      {FEATURES.map((f) => (
+        <li key={f} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: "#202223" }}>
+          <span style={{ marginTop: 2, flexShrink: 0 }}>
+            <CheckIcon />
+          </span>
+          {f}
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export default function Billing() {
   const { isDevStore, subscription } = useLoaderData();
@@ -40,34 +75,42 @@ export default function Billing() {
 
   return (
     <s-page heading="Billing">
-      <div style={{ background: "linear-gradient(180deg, #FDFAF4 0%, #F8F1E4 100%)", minHeight: "100%", padding: "4px 0" }}>
+      <div style={pageBg}>
         <s-stack direction="block" gap="loose">
-          <div style={cardBase}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#14181f", marginBottom: 16 }}>Current plan</div>
+          {isDevStore ? (
+            <div style={cardBase}>
+              <s-badge tone="success" size="large">Free — development store</s-badge>
+              <div style={{ fontSize: 24, fontWeight: 800, color: "#14181f", marginTop: 14 }}>$0 / month</div>
+              <div style={{ fontSize: 13, color: "#8a8f98", marginTop: 4 }}>
+                Development stores are never charged. This store moves to the $4.99/month Pro Plan
+                automatically only once it becomes a live store — all features are available right
+                now at no cost for testing.
+              </div>
+              <FeatureList />
+            </div>
+          ) : (
+            <div style={cardBase}>
+              {subscription ? (
+                <>
+                  <s-badge tone="success" size="large">Subscribed — {subscription.name}</s-badge>
+                  <div style={{ fontSize: 13, color: "#8a8f98", marginTop: 8 }}>Status: {subscription.status}</div>
+                </>
+              ) : (
+                <>
+                  <s-badge tone="warning" size="large">Not subscribed</s-badge>
+                  <div style={{ fontSize: 13, color: "#8a8f98", marginTop: 8 }}>
+                    Subscribe to unlock OrderPing for this store.
+                  </div>
+                </>
+              )}
 
-            {isDevStore ? (
-              <s-stack direction="block" gap="base">
-                <s-badge tone="success" size="large">Free — development store</s-badge>
-                <div style={{ fontSize: 13, color: "#8a8f98" }}>
-                  Development stores aren't charged. This store will be billed ${"4.99"}/month only once it
-                  becomes a live store.
-                </div>
-              </s-stack>
-            ) : subscription ? (
-              <s-stack direction="block" gap="base">
-                <s-badge tone="success" size="large">Subscribed — {subscription.name}</s-badge>
-                <div style={{ fontSize: 13, color: "#8a8f98" }}>
-                  Status: {subscription.status}
-                </div>
-              </s-stack>
-            ) : (
-              <s-stack direction="block" gap="base">
-                <s-badge tone="warning" size="large">Not subscribed</s-badge>
-                <div style={{ fontSize: 13, color: "#8a8f98" }}>
-                  OrderPing is $4.99/month for live stores. Subscribe to keep sending WhatsApp order
-                  notifications.
-                </div>
-                <div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: "#14181f", marginTop: 18 }}>$4.99 / month</div>
+              <div style={{ fontSize: 13, color: COLORS.gold, fontWeight: 600 }}>Pro Plan</div>
+
+              <FeatureList />
+
+              {!subscription && (
+                <div style={{ marginTop: 22 }}>
                   <button
                     type="button"
                     onClick={onSubscribe}
@@ -85,9 +128,9 @@ export default function Billing() {
                     Subscribe — $4.99/month
                   </button>
                 </div>
-              </s-stack>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </s-stack>
       </div>
     </s-page>

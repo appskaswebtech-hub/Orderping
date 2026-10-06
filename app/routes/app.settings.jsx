@@ -1,11 +1,13 @@
 import { useFetcher, useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
+import { requireActivePlan } from "../services/billing.server";
 import db from "../db.server";
 import { testConnection } from "../services/whatsapp.server";
 
 export const loader = async ({ request }) => {
-  const { admin, session } = await authenticate.admin(request);
+  const { admin, billing, session } = await authenticate.admin(request);
+  await requireActivePlan({ admin, billing });
   const shop = session?.shop || admin?.shop || "";
 
   if (!shop) return { settings: {} };

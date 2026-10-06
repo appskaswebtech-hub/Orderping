@@ -1,19 +1,13 @@
 import { Outlet, useLoaderData, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
-import { authenticate, PRO_PLAN } from "../shopify.server";
-import { isDevelopmentStore } from "../services/billing.server";
+import { authenticate } from "../shopify.server";
 
+// No billing gate here — it's per-page (see requireActivePlan in
+// services/billing.server.js) so the Billing page itself doesn't redirect to
+// itself in a loop.
 export const loader = async ({ request }) => {
-  const { admin, billing } = await authenticate.admin(request);
-
-  const isDevStore = await isDevelopmentStore(admin);
-  if (!isDevStore) {
-    await billing.require({
-      plans: [PRO_PLAN],
-      onFailure: async () => billing.request({ plan: PRO_PLAN }),
-    });
-  }
+  await authenticate.admin(request);
 
   // eslint-disable-next-line no-undef
   return { apiKey: process.env.SHOPIFY_API_KEY || "" };
