@@ -151,6 +151,65 @@ const WhatsAppIcon = ({ size = 24 }) => (
     <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.39 1.26 4.81L2 22l5.42-1.36a9.86 9.86 0 0 0 4.62 1.14h.01c5.46 0 9.9-4.45 9.9-9.91C21.95 6.45 17.5 2 12.04 2Zm5.79 14.02c-.24.68-1.4 1.3-1.93 1.34-.53.04-1.02.24-3.42-.72-2.9-1.16-4.75-4.1-4.9-4.3-.14-.2-1.18-1.57-1.18-3 0-1.42.75-2.12 1.01-2.41.26-.29.58-.36.77-.36.19 0 .39 0 .55.01.19.01.42-.07.66.5.24.58.83 2 .9 2.15.07.15.12.32.02.51-.1.19-.15.31-.3.48-.15.17-.31.38-.44.51-.15.15-.31.31-.13.6.18.29.79 1.31 1.7 2.12 1.17 1.05 2.16 1.37 2.45 1.53.29.15.46.13.63-.08.17-.2.72-.84.91-1.13.19-.29.38-.24.63-.14.26.1 1.66.78 1.94.92.29.15.48.22.55.34.07.13.07.71-.17 1.39Z" />
   </svg>
 );
+const CopyIcon = (p) => (
+  <Icon {...p}>
+    <rect x="9" y="9" width="12" height="12" rx="2" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </Icon>
+);
+const CheckIcon = (p) => (
+  <Icon {...p}>
+    <path d="M20 6 9 17l-5-5" />
+  </Icon>
+);
+
+// Suggested body text for each required template, matching the order of
+// variables buildVariables() sends for that event (see order-events.server.js
+// and webhooks.app.orders_create.jsx). Merchants can paste this as-is into
+// Meta, or write their own body as long as the variable count/order matches.
+const REQUIRED_TEMPLATES = [
+  {
+    label: "Order confirmation",
+    name: "order_confirmation_image",
+    body: "Hi {{1}}, your order #{{2}} has been confirmed!\n\nItem(s): {{3}}\nTotal: {{4}}\n\nThank you for shopping with us!",
+  },
+  {
+    label: "Shipped",
+    name: "order_shipped",
+    body: "Hi {{1}}, good news! Your order #{{2}} has shipped.\nTracking: {{3}}",
+  },
+  {
+    label: "Out for delivery",
+    name: "order_out_for_delivery",
+    body: "Hi {{1}}, your order #{{2}} is out for delivery and should arrive today.",
+  },
+  {
+    label: "Delivered",
+    name: "order_delivered",
+    body: "Hi {{1}}, your order #{{2}} has been delivered. Thank you for shopping with us!",
+  },
+  {
+    label: "Refund initiated",
+    name: "order_refund_initiated",
+    body: "Hi {{1}}, a refund of {{3}} has been initiated for your order #{{2}}. It should reflect in 5-10 business days.",
+  },
+  {
+    label: "Order cancelled",
+    name: "order_cancelled",
+    body: "Hi {{1}}, your order #{{2}} has been cancelled. Reason: {{3}}",
+  },
+  {
+    label: "Payment confirmed",
+    name: "order_paid",
+    body: "Hi {{1}}, we've received your payment of {{3}} for order #{{2}}. Thank you!",
+  },
+  {
+    label: "Partially fulfilled",
+    name: "order_partially_fulfilled",
+    body: "Hi {{1}}, part of your order #{{2}} has shipped. The rest is on its way soon.",
+  },
+];
+
 const SparkleIcon = ({ size = 14, color = COLORS.goldBorder }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
     <path d="M12 2 14 10 22 12 14 14 12 22 10 14 2 12 10 10Z" />
@@ -263,6 +322,14 @@ export default function Settings() {
   const hasOwnCredentials = !!(settings.META_ACCESS_TOKEN && settings.META_PHONE_NUMBER_ID);
   const isConfigured = mode === "managed" || hasOwnCredentials;
   const isWorking = fetcher.state !== "idle";
+
+  const [copiedName, setCopiedName] = useState(null);
+  const onCopyBody = (template) => {
+    navigator.clipboard?.writeText(template.body).then(() => {
+      setCopiedName(template.name);
+      setTimeout(() => setCopiedName((cur) => (cur === template.name ? null : cur)), 2000);
+    });
+  };
 
   return (
     <s-page heading="WhatsApp settings">
@@ -427,74 +494,56 @@ export default function Settings() {
 
           <div style={{ ...cardBase, padding: "24px 28px" }}>
             <SectionHeading icon={<ChatIcon size={18} />} title="Required WhatsApp templates" />
-            <div style={{ display: "flex", gap: 24, alignItems: "flex-start", flexWrap: "wrap" }}>
-              <div style={{ flex: 1, minWidth: 260 }}>
-                <div style={{ fontSize: 13, color: "#6d7175", marginBottom: 14 }}>
-                  In your Meta Business Manager, create each of these as an approved Utility template in
-                  English (US), using the exact name shown. OrderPing fills in the variables automatically.
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {[
-                    ["Order confirmation", "order_confirmation_image"],
-                    ["Shipped", "order_shipped"],
-                    ["Out for delivery", "order_out_for_delivery"],
-                    ["Delivered", "order_delivered"],
-                    ["Refund initiated", "order_refund_initiated"],
-                    ["Order cancelled", "order_cancelled"],
-                    ["Payment confirmed", "order_paid"],
-                    ["Partially fulfilled", "order_partially_fulfilled"],
-                  ].map(([label, name]) => (
-                    <div key={name} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13, padding: "6px 0", borderBottom: `1px solid ${COLORS.goldBorder}` }}>
-                      <span style={{ color: "#4a4f57" }}>{label}</span>
-                      <code style={{ color: COLORS.gold, fontWeight: 700 }}>{name}</code>
-                    </div>
+            <div style={{ fontSize: 13, color: "#6d7175", marginBottom: 16 }}>
+              In your Meta Business Manager, create each of these as an approved Utility template in English
+              (US), using the exact name shown. You can copy the suggested body text below as-is, or write
+              your own, as long as it keeps the same number and order of variables ({"{{1}}"}, {"{{2}}"}, ...).
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left", padding: "8px 10px", color: COLORS.gold, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, borderBottom: `2px solid ${COLORS.goldBorder}` }}>Event</th>
+                    <th style={{ textAlign: "left", padding: "8px 10px", color: COLORS.gold, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, borderBottom: `2px solid ${COLORS.goldBorder}` }}>Template name</th>
+                    <th style={{ textAlign: "left", padding: "8px 10px", color: COLORS.gold, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, borderBottom: `2px solid ${COLORS.goldBorder}` }}>Suggested body</th>
+                    <th style={{ borderBottom: `2px solid ${COLORS.goldBorder}` }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {REQUIRED_TEMPLATES.map((t) => (
+                    <tr key={t.name} style={{ borderBottom: `1px solid ${COLORS.goldBorder}` }}>
+                      <td style={{ padding: "10px", color: "#4a4f57", verticalAlign: "top", whiteSpace: "nowrap" }}>{t.label}</td>
+                      <td style={{ padding: "10px", verticalAlign: "top", whiteSpace: "nowrap" }}>
+                        <code style={{ color: COLORS.gold, fontWeight: 700 }}>{t.name}</code>
+                      </td>
+                      <td style={{ padding: "10px", verticalAlign: "top", color: "#6d7175", whiteSpace: "pre-wrap", maxWidth: 360 }}>{t.body}</td>
+                      <td style={{ padding: "10px", verticalAlign: "top" }}>
+                        <button
+                          type="button"
+                          onClick={() => onCopyBody(t)}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "6px 10px",
+                            borderRadius: 8,
+                            border: `1px solid ${COLORS.goldBorder}`,
+                            background: copiedName === t.name ? COLORS.sentSoft : "#FFFDF8",
+                            color: copiedName === t.name ? COLORS.sent : COLORS.gold,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {copiedName === t.name ? <CheckIcon size={13} /> : <CopyIcon size={13} />}
+                          {copiedName === t.name ? "Copied" : "Copy body"}
+                        </button>
+                      </td>
+                    </tr>
                   ))}
-                </div>
-              </div>
-              <div style={{ position: "relative", width: 140, height: 130, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <span style={{ position: "absolute", top: 0, right: 10 }}>
-                  <SparkleIcon size={14} />
-                </span>
-                <span style={{ position: "absolute", bottom: 8, left: 0 }}>
-                  <SparkleIcon size={12} />
-                </span>
-                <div
-                  style={{
-                    width: 90,
-                    height: 100,
-                    borderRadius: 12,
-                    background: COLORS.goldSoft,
-                    border: `1px solid ${COLORS.goldBorder}`,
-                    padding: 14,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 8,
-                  }}
-                >
-                  <div style={{ width: "60%", height: 6, borderRadius: 3, background: COLORS.goldBorder }} />
-                  <div style={{ width: "90%", height: 4, borderRadius: 2, background: COLORS.goldBorder }} />
-                  <div style={{ width: "80%", height: 4, borderRadius: 2, background: COLORS.goldBorder }} />
-                  <div style={{ width: "70%", height: 4, borderRadius: 2, background: COLORS.goldBorder }} />
-                </div>
-                <div
-                  style={{
-                    position: "absolute",
-                    bottom: 4,
-                    right: 4,
-                    width: 40,
-                    height: 40,
-                    borderRadius: "50%",
-                    background: COLORS.sent,
-                    color: "#fff",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    boxShadow: "0 2px 6px rgba(31,169,123,0.35)",
-                  }}
-                >
-                  <WhatsAppIcon size={20} />
-                </div>
-              </div>
+                </tbody>
+              </table>
             </div>
           </div>
           </>
