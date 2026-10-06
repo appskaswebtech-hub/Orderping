@@ -258,7 +258,10 @@ export default function Settings() {
   };
 
   const isEnabled = settings.ENABLED !== "false";
-  const isConfigured = !!(settings.META_ACCESS_TOKEN && settings.META_PHONE_NUMBER_ID);
+  // In "managed" mode, credentials aren't expected — OrderPing's own are used
+  // via the .env fallback, so there's nothing to warn the merchant about here.
+  const hasOwnCredentials = !!(settings.META_ACCESS_TOKEN && settings.META_PHONE_NUMBER_ID);
+  const isConfigured = mode === "managed" || hasOwnCredentials;
   const isWorking = fetcher.state !== "idle";
 
   return (
@@ -296,7 +299,11 @@ export default function Settings() {
               <div style={{ fontSize: 15, fontWeight: 700, color: "#14181f", marginBottom: 10 }}>Status</div>
               <s-stack direction="inline" gap="base">
                 <s-badge tone={isConfigured ? "success" : "warning"} size="large">
-                  {isConfigured ? "● Credentials configured" : "● Not configured"}
+                  {mode === "managed"
+                    ? "● Using OrderPing's default setup"
+                    : hasOwnCredentials
+                      ? "● Credentials configured"
+                      : "● Not configured"}
                 </s-badge>
                 <s-badge tone={isEnabled ? "success" : "neutral"} size="large">
                   {isEnabled ? "● Notifications enabled" : "● Notifications disabled"}
