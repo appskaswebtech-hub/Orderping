@@ -27,6 +27,10 @@ export const action = async ({ request }) => {
   const shop = session?.shop || admin?.shop || "";
   const form = await request.formData();
 
+  const accessToken = form.get("META_ACCESS_TOKEN");
+  const phoneNumberId = form.get("META_PHONE_NUMBER_ID");
+  const wabaId = form.get("META_WABA_ID");
+  const apiVersion = form.get("META_API_VERSION");
   const templateName = form.get("META_TEMPLATE_NAME");
   const templateLanguage = form.get("META_TEMPLATE_LANGUAGE");
   const enabled = form.get("ENABLED") === "on" ? "true" : "false";
@@ -47,7 +51,8 @@ export const action = async ({ request }) => {
 
   if (actionType === "test") {
     try {
-      await testConnection({});
+      const tokenToTest = accessToken && accessToken !== "*****" ? accessToken : undefined;
+      await testConnection({ accessToken: tokenToTest, phoneNumberId, apiVersion });
       return new Response(JSON.stringify({ ok: true }), { status: 200 });
     } catch (err) {
       return new Response(JSON.stringify({ ok: false, error: err?.body || err?.message || String(err) }), { status: 400 });
@@ -55,10 +60,16 @@ export const action = async ({ request }) => {
   }
 
   // Save settings
+  await upsert("META_PHONE_NUMBER_ID", phoneNumberId);
+  await upsert("META_WABA_ID", wabaId);
+  await upsert("META_API_VERSION", apiVersion);
   await upsert("META_TEMPLATE_NAME", templateName);
   await upsert("META_TEMPLATE_LANGUAGE", templateLanguage);
   await upsert("ENABLED", enabled);
   await upsert("REQUIRE_CUSTOMER_OPT_IN", requireOptIn);
+  if (accessToken && accessToken !== "*****") {
+    await upsert("META_ACCESS_TOKEN", accessToken);
+  }
 
   return new Response(JSON.stringify({ saved: true }), { status: 200, headers: { "Content-Type": "application/json" } });
 };
@@ -89,6 +100,14 @@ function Icon({ children, size = 20 }) {
     </svg>
   );
 }
+const KeyIcon = (p) => (
+  <Icon {...p}>
+    <circle cx="7.5" cy="15.5" r="4.5" />
+    <path d="M10.6 12.4 20 3" />
+    <path d="M16 7 20 11" />
+    <path d="M12.5 10.5 16 14" />
+  </Icon>
+);
 const ChatIcon = (p) => (
   <Icon {...p}>
     <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" />
@@ -201,7 +220,14 @@ export default function Settings() {
   const fetcher = useFetcher();
   const { settings } = useLoaderData();
 
-  const fieldNames = ["META_TEMPLATE_NAME", "META_TEMPLATE_LANGUAGE"];
+  const fieldNames = [
+    "META_ACCESS_TOKEN",
+    "META_PHONE_NUMBER_ID",
+    "META_WABA_ID",
+    "META_API_VERSION",
+    "META_TEMPLATE_NAME",
+    "META_TEMPLATE_LANGUAGE",
+  ];
 
   const buildFormData = () => {
     const form = new FormData();
@@ -227,6 +253,7 @@ export default function Settings() {
   };
 
   const isEnabled = settings.ENABLED !== "false";
+  const isConfigured = !!(settings.META_ACCESS_TOKEN && settings.META_PHONE_NUMBER_ID);
   const isWorking = fetcher.state !== "idle";
 
   return (
@@ -262,9 +289,14 @@ export default function Settings() {
           >
             <div>
               <div style={{ fontSize: 15, fontWeight: 700, color: "#14181f", marginBottom: 10 }}>Status</div>
-              <s-badge tone={isEnabled ? "success" : "neutral"} size="large">
-                {isEnabled ? "● Notifications enabled" : "● Notifications disabled"}
-              </s-badge>
+              <s-stack direction="inline" gap="base">
+                <s-badge tone={isConfigured ? "success" : "warning"} size="large">
+                  {isConfigured ? "● Credentials configured" : "● Not configured"}
+                </s-badge>
+                <s-badge tone={isEnabled ? "success" : "neutral"} size="large">
+                  {isEnabled ? "● Notifications enabled" : "● Notifications disabled"}
+                </s-badge>
+              </s-stack>
             </div>
             <div style={{ position: "relative", width: 64, height: 64, flexShrink: 0 }}>
               <span style={{ position: "absolute", top: -4, right: -2 }}>
@@ -285,6 +317,34 @@ export default function Settings() {
               >
                 <WhatsAppIcon size={30} />
               </div>
+            </div>
+          </div>
+
+          <div style={{ ...cardBase, padding: "24px 28px" }}>
+            <SectionHeading icon={<KeyIcon size={18} />} title="Meta WhatsApp credentials" />
+            <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 480 }}>
+              <Field
+                label="Access token"
+                name="META_ACCESS_TOKEN"
+                defaultValue={settings.META_ACCESS_TOKEN || ""}
+                help="From Meta Business Manager. Won't be shown again after saving."
+              />
+              <Field
+                label="Phone number ID"
+                name="META_PHONE_NUMBER_ID"
+                defaultValue={settings.META_PHONE_NUMBER_ID || ""}
+                help="The Cloud API phone number ID that sends the messages."
+              />
+              <Field
+                label="WhatsApp Business Account ID (optional)"
+                name="META_WABA_ID"
+                defaultValue={settings.META_WABA_ID || ""}
+              />
+              <Field
+                label="API version"
+                name="META_API_VERSION"
+                defaultValue={settings.META_API_VERSION || "v17.0"}
+              />
             </div>
           </div>
 
