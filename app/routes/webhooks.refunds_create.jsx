@@ -1,5 +1,5 @@
 import { authenticate } from "../shopify.server";
-import { fetchOrderById, sendOrderStatusNotification, getCustomerNameFromOrder } from "../services/order-events.server";
+import { fetchOrderById, sendOrderStatusNotification, getCustomerNameFromOrder, REQUIRED_TEMPLATES } from "../services/order-events.server";
 
 function refundAmount(refund) {
   const total = (refund?.transactions || []).reduce((sum, t) => sum + Number(t.amount || 0), 0);
@@ -24,8 +24,7 @@ export const action = async ({ request }) => {
       shop,
       order,
       notificationType: "whatsapp_refund",
-      templateEnvKey: "META_TEMPLATE_NAME_REFUND",
-      templateLanguageEnvKey: "META_TEMPLATE_LANGUAGE_REFUND",
+      template: REQUIRED_TEMPLATES.refundInitiated,
       buildVariables: () => [
         getCustomerNameFromOrder(order) || "Customer",
         String(order.order_number ?? order.name ?? orderId),

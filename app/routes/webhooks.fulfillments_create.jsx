@@ -1,5 +1,5 @@
 import { authenticate } from "../shopify.server";
-import { fetchOrderById, sendOrderStatusNotification, getCustomerNameFromOrder } from "../services/order-events.server";
+import { fetchOrderById, sendOrderStatusNotification, getCustomerNameFromOrder, REQUIRED_TEMPLATES } from "../services/order-events.server";
 
 export const action = async ({ request }) => {
   try {
@@ -24,8 +24,7 @@ export const action = async ({ request }) => {
       shop,
       order,
       notificationType: "whatsapp_shipped",
-      templateEnvKey: "META_TEMPLATE_NAME_SHIPPED",
-      templateLanguageEnvKey: "META_TEMPLATE_LANGUAGE_SHIPPED",
+      template: REQUIRED_TEMPLATES.shipped,
       buildVariables: () => [
         getCustomerNameFromOrder(order) || "Customer",
         String(order.order_number ?? order.name ?? orderId),

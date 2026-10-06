@@ -31,8 +31,6 @@ export const action = async ({ request }) => {
   const phoneNumberId = form.get("META_PHONE_NUMBER_ID");
   const wabaId = form.get("META_WABA_ID");
   const apiVersion = form.get("META_API_VERSION");
-  const templateName = form.get("META_TEMPLATE_NAME");
-  const templateLanguage = form.get("META_TEMPLATE_LANGUAGE");
   const enabled = form.get("ENABLED") === "on" ? "true" : "false";
   const requireOptIn = form.get("REQUIRE_CUSTOMER_OPT_IN") === "on" ? "true" : "false";
   const actionType = form.get("actionType");
@@ -63,8 +61,6 @@ export const action = async ({ request }) => {
   await upsert("META_PHONE_NUMBER_ID", phoneNumberId);
   await upsert("META_WABA_ID", wabaId);
   await upsert("META_API_VERSION", apiVersion);
-  await upsert("META_TEMPLATE_NAME", templateName);
-  await upsert("META_TEMPLATE_LANGUAGE", templateLanguage);
   await upsert("ENABLED", enabled);
   await upsert("REQUIRE_CUSTOMER_OPT_IN", requireOptIn);
   if (accessToken && accessToken !== "*****") {
@@ -220,14 +216,7 @@ export default function Settings() {
   const fetcher = useFetcher();
   const { settings } = useLoaderData();
 
-  const fieldNames = [
-    "META_ACCESS_TOKEN",
-    "META_PHONE_NUMBER_ID",
-    "META_WABA_ID",
-    "META_API_VERSION",
-    "META_TEMPLATE_NAME",
-    "META_TEMPLATE_LANGUAGE",
-  ];
+  const fieldNames = ["META_ACCESS_TOKEN", "META_PHONE_NUMBER_ID", "META_WABA_ID", "META_API_VERSION"];
 
   const buildFormData = () => {
     const form = new FormData();
@@ -349,21 +338,30 @@ export default function Settings() {
           </div>
 
           <div style={{ ...cardBase, padding: "24px 28px" }}>
-            <SectionHeading icon={<ChatIcon size={18} />} title="Message template" />
+            <SectionHeading icon={<ChatIcon size={18} />} title="Required WhatsApp templates" />
             <div style={{ display: "flex", gap: 24, alignItems: "flex-start", flexWrap: "wrap" }}>
-              <div style={{ flex: 1, minWidth: 260, display: "flex", flexDirection: "column", gap: 20 }}>
-                <Field
-                  label="Template name"
-                  name="META_TEMPLATE_NAME"
-                  defaultValue={settings.META_TEMPLATE_NAME || "order_confirmation_image"}
-                  help="Must exactly match an approved template in Meta Business Manager."
-                />
-                <Field
-                  label="Template language code"
-                  name="META_TEMPLATE_LANGUAGE"
-                  defaultValue={settings.META_TEMPLATE_LANGUAGE || "en_US"}
-                  help="e.g. en, en_US — must match the template's language exactly."
-                />
+              <div style={{ flex: 1, minWidth: 260 }}>
+                <div style={{ fontSize: 13, color: "#6d7175", marginBottom: 14 }}>
+                  In your Meta Business Manager, create each of these as an approved Utility template in
+                  English (US), using the exact name shown. OrderPing fills in the variables automatically.
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {[
+                    ["Order confirmation", "order_confirmation_image"],
+                    ["Shipped", "order_shipped"],
+                    ["Out for delivery", "order_out_for_delivery"],
+                    ["Delivered", "order_delivered"],
+                    ["Refund initiated", "order_refund_initiated"],
+                    ["Order cancelled", "order_cancelled"],
+                    ["Payment confirmed", "order_paid"],
+                    ["Partially fulfilled", "order_partially_fulfilled"],
+                  ].map(([label, name]) => (
+                    <div key={name} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13, padding: "6px 0", borderBottom: `1px solid ${COLORS.goldBorder}` }}>
+                      <span style={{ color: "#4a4f57" }}>{label}</span>
+                      <code style={{ color: COLORS.gold, fontWeight: 700 }}>{name}</code>
+                    </div>
+                  ))}
+                </div>
               </div>
               <div style={{ position: "relative", width: 140, height: 130, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <span style={{ position: "absolute", top: 0, right: 10 }}>

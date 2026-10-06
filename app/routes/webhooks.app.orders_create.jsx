@@ -1,6 +1,7 @@
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { sendTemplateMessage } from "../services/whatsapp.server";
+import { REQUIRED_TEMPLATES } from "../services/order-events.server";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 
 function getPhoneFromOrder(order) {
@@ -182,7 +183,9 @@ async function handleOrderCreate(request) {
   const rawPhone = getPhoneFromOrder(order);
   let defaultCountry;
   let credentials = {};
-  let template = { name: "order_status", language: "en" };
+  // Fixed, not configurable per shop — see REQUIRED_TEMPLATES in
+  // order-events.server.js for why order confirmation has to work the same way.
+  const template = REQUIRED_TEMPLATES.orderConfirmation;
 
   // Check shop settings: enabled flag, opt-in requirement, credentials, template.
   // Any failure here must block sending (fail closed), not fall through to a send.
@@ -195,18 +198,12 @@ async function handleOrderCreate(request) {
     enabled = settings.ENABLED !== "false";
     requireOptIn = settings.REQUIRE_CUSTOMER_OPT_IN === "true";
     defaultCountry = settings.DEFAULT_COUNTRY || undefined;
-    // TEMPORARY: falls back to the developer's own WhatsApp credentials (set via
-    // env vars) for stores that haven't configured their own yet, so Shopify's
-    // reviewer can test the app without needing per-store setup. Remove these
-    // env fallbacks once the app is approved and merchants configure their own.
+    // Falls back to the developer's own WhatsApp credentials (env vars) only for
+    // stores that haven't entered their own yet in Settings.
     credentials = {
       accessToken: settings.META_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN || undefined,
       phoneNumberId: settings.META_PHONE_NUMBER_ID || process.env.META_PHONE_NUMBER_ID || undefined,
       apiVersion: settings.META_API_VERSION || process.env.META_API_VERSION || undefined,
-    };
-    template = {
-      name: settings.META_TEMPLATE_NAME || process.env.META_TEMPLATE_NAME || "order_status",
-      language: settings.META_TEMPLATE_LANGUAGE || process.env.META_TEMPLATE_LANGUAGE || "en",
     };
     console.log(`[order-ping] checkpoint settings_loaded enabled=${enabled} requireOptIn=${requireOptIn}`);
 

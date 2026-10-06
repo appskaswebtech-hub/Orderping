@@ -50,6 +50,22 @@ export function normalizePhone(raw, defaultCountry) {
   }
 }
 
+// Every merchant must create a template with this exact name (category
+// Utility, language English (US)) in their own Meta Business Account for
+// each event type to be sent — we can't approve templates on their behalf,
+// so the name has to be a fixed, documented contract rather than something
+// configurable per shop. See REQUIRED_TEMPLATES below for the full list.
+export const REQUIRED_TEMPLATES = {
+  orderConfirmation: { name: "order_confirmation_image", language: "en_US" },
+  shipped: { name: "order_shipped", language: "en_US" },
+  outForDelivery: { name: "order_out_for_delivery", language: "en_US" },
+  delivered: { name: "order_delivered", language: "en_US" },
+  refundInitiated: { name: "order_refund_initiated", language: "en_US" },
+  cancelled: { name: "order_cancelled", language: "en_US" },
+  paid: { name: "order_paid", language: "en_US" },
+  partiallyFulfilled: { name: "order_partially_fulfilled", language: "en_US" },
+};
+
 /**
  * Sends a WhatsApp status-update message (shipped, out for delivery, delivered,
  * refund initiated, etc.) for an order-related webhook.
@@ -58,11 +74,8 @@ export function normalizePhone(raw, defaultCountry) {
  * doesn't collide with the order-confirmation log entry or other event types for
  * the same order, and so idempotency/dedup works per event kind.
  *
- * `templateEnvKey` is the env var holding the Meta template name to use for this
- * event (e.g. "META_TEMPLATE_NAME_SHIPPED"). Per-shop override uses the same key
- * name in AppSetting. If neither is configured, the send is skipped (logged as
- * "template_not_configured") rather than guessing a template name — an unapproved
- * template name would just fail at Meta anyway.
+ * `template` is one of the entries from REQUIRED_TEMPLATES above — fixed per
+ * event kind, not configurable per shop (see its comment for why).
  *
  * `buildVariables(order)` returns the ordered array of body text values the
  * template's {{1}}, {{2}}, ... placeholders expect.
@@ -71,8 +84,7 @@ export async function sendOrderStatusNotification({
   shop,
   order,
   notificationType,
-  templateEnvKey,
-  templateLanguageEnvKey,
+  template,
   buildVariables,
 }) {
   const shopifyOrderId = String(order.id ?? order.order_id ?? "");
@@ -107,16 +119,11 @@ export async function sendOrderStatusNotification({
     return;
   }
 
-  const templateName = settings[templateEnvKey] || process.env[templateEnvKey];
-  if (!templateName) {
-    await logFailure("template_not_configured");
-    return;
-  }
-  const templateLanguage = settings[templateLanguageEnvKey] || process.env[templateLanguageEnvKey] || "en_US";
+  const templateName = template.name;
+  const templateLanguage = template.language;
 
-  // TEMPORARY: falls back to the developer's own WhatsApp credentials while the
-  // app is pending Shopify review. Remove once approved — see
-  // webhooks.app.orders_create.jsx for the matching note.
+  // Falls back to the developer's own WhatsApp credentials (env vars) only for
+  // stores that haven't entered their own yet in Settings.
   const credentials = {
     accessToken: settings.META_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN || undefined,
     phoneNumberId: settings.META_PHONE_NUMBER_ID || process.env.META_PHONE_NUMBER_ID || undefined,

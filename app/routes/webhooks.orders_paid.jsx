@@ -1,5 +1,5 @@
 import { authenticate } from "../shopify.server";
-import { sendOrderStatusNotification, getCustomerNameFromOrder } from "../services/order-events.server";
+import { sendOrderStatusNotification, getCustomerNameFromOrder, REQUIRED_TEMPLATES } from "../services/order-events.server";
 
 function buildTotal(order) {
   const total = order?.total_price ?? order?.current_total_price;
@@ -20,8 +20,7 @@ export const action = async ({ request }) => {
       shop,
       order,
       notificationType: "whatsapp_paid",
-      templateEnvKey: "META_TEMPLATE_NAME_PAID",
-      templateLanguageEnvKey: "META_TEMPLATE_LANGUAGE_PAID",
+      template: REQUIRED_TEMPLATES.paid,
       buildVariables: () => [
         getCustomerNameFromOrder(order) || "Customer",
         String(order.order_number ?? order.name ?? order.id),

@@ -1,5 +1,5 @@
 import { authenticate } from "../shopify.server";
-import { sendOrderStatusNotification, getCustomerNameFromOrder } from "../services/order-events.server";
+import { sendOrderStatusNotification, getCustomerNameFromOrder, REQUIRED_TEMPLATES } from "../services/order-events.server";
 
 export const action = async ({ request }) => {
   try {
@@ -13,8 +13,7 @@ export const action = async ({ request }) => {
       shop,
       order,
       notificationType: "whatsapp_cancelled",
-      templateEnvKey: "META_TEMPLATE_NAME_CANCELLED",
-      templateLanguageEnvKey: "META_TEMPLATE_LANGUAGE_CANCELLED",
+      template: REQUIRED_TEMPLATES.cancelled,
       buildVariables: () => [
         getCustomerNameFromOrder(order) || "Customer",
         String(order.order_number ?? order.name ?? order.id),

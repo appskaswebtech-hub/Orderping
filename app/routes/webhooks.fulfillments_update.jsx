@@ -1,5 +1,5 @@
 import { authenticate } from "../shopify.server";
-import { fetchOrderById, sendOrderStatusNotification, getCustomerNameFromOrder } from "../services/order-events.server";
+import { fetchOrderById, sendOrderStatusNotification, getCustomerNameFromOrder, REQUIRED_TEMPLATES } from "../services/order-events.server";
 
 // Carrier-reported shipment_status values we care about. Everything else
 // (label_printed, in_transit, confirmed, etc.) is ignored — not every status
@@ -7,13 +7,11 @@ import { fetchOrderById, sendOrderStatusNotification, getCustomerNameFromOrder }
 const STATUS_MAP = {
   out_for_delivery: {
     notificationType: "whatsapp_out_for_delivery",
-    templateEnvKey: "META_TEMPLATE_NAME_OUT_FOR_DELIVERY",
-    templateLanguageEnvKey: "META_TEMPLATE_LANGUAGE_OUT_FOR_DELIVERY",
+    template: REQUIRED_TEMPLATES.outForDelivery,
   },
   delivered: {
     notificationType: "whatsapp_delivered",
-    templateEnvKey: "META_TEMPLATE_NAME_DELIVERED",
-    templateLanguageEnvKey: "META_TEMPLATE_LANGUAGE_DELIVERED",
+    template: REQUIRED_TEMPLATES.delivered,
   },
 };
 
