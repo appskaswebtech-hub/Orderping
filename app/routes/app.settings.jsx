@@ -167,45 +167,56 @@ const CheckIcon = (p) => (
 // variables buildVariables() sends for that event (see order-events.server.js
 // and webhooks.app.orders_create.jsx). Merchants can paste this as-is into
 // Meta, or write their own body as long as the variable count/order matches.
+// `language` must match REQUIRED_TEMPLATES in order-events.server.js exactly —
+// Meta treats "English" (en) and "English (US)" (en_US) as different
+// languages, so a template approved under the wrong one will fail to send.
 const REQUIRED_TEMPLATES = [
   {
     label: "Order confirmation",
     name: "order_confirmation_image",
+    language: "English (US)",
     body: "Hi {{1}}, your order #{{2}} has been confirmed!\n\nItem(s): {{3}}\nTotal: {{4}}\n\nThank you for shopping with us!",
   },
   {
     label: "Shipped",
     name: "order_shipped",
+    language: "English",
     body: "Hi {{1}}, good news! Your order #{{2}} has shipped.\nTracking: {{3}}",
   },
   {
     label: "Out for delivery",
     name: "order_out_for_delivery",
+    language: "English",
     body: "Hi {{1}}, your order #{{2}} is out for delivery and should arrive today.",
   },
   {
     label: "Delivered",
     name: "order_delivered",
+    language: "English",
     body: "Hi {{1}}, your order #{{2}} has been delivered. Thank you for shopping with us!",
   },
   {
     label: "Refund initiated",
     name: "order_refund_initiated",
+    language: "English",
     body: "Hi {{1}}, a refund of {{3}} has been initiated for your order #{{2}}. It should reflect in 5-10 business days.",
   },
   {
     label: "Order cancelled",
     name: "order_cancelled",
+    language: "English",
     body: "Hi {{1}}, your order #{{2}} has been cancelled. Reason: {{3}}",
   },
   {
     label: "Payment confirmed",
     name: "order_paid",
+    language: "English",
     body: "Hi {{1}}, we've received your payment of {{3}} for order #{{2}}. Thank you!",
   },
   {
     label: "Partially fulfilled",
     name: "order_partially_fulfilled",
+    language: "English",
     body: "Hi {{1}}, part of your order #{{2}} has shipped. The rest is on its way soon.",
   },
 ];
@@ -495,9 +506,11 @@ export default function Settings() {
           <div style={{ ...cardBase, padding: "24px 28px" }}>
             <SectionHeading icon={<ChatIcon size={18} />} title="Required WhatsApp templates" />
             <div style={{ fontSize: 13, color: "#6d7175", marginBottom: 16 }}>
-              In your Meta Business Manager, create each of these as an approved Utility template in English
-              (US), using the exact name shown. You can copy the suggested body text below as-is, or write
-              your own, as long as it keeps the same number and order of variables ({"{{1}}"}, {"{{2}}"}, ...).
+              In your Meta Business Manager, create each of these as an approved Utility template, using the
+              exact name and language shown (Meta treats "English" and "English (US)" as different
+              languages — using the wrong one will make sends fail even if the name matches). You can copy
+              the suggested body text below as-is, or write your own, as long as it keeps the same number
+              and order of variables ({"{{1}}"}, {"{{2}}"}, ...).
             </div>
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -505,6 +518,7 @@ export default function Settings() {
                   <tr>
                     <th style={{ textAlign: "left", padding: "8px 10px", color: COLORS.gold, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, borderBottom: `2px solid ${COLORS.goldBorder}` }}>Event</th>
                     <th style={{ textAlign: "left", padding: "8px 10px", color: COLORS.gold, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, borderBottom: `2px solid ${COLORS.goldBorder}` }}>Template name</th>
+                    <th style={{ textAlign: "left", padding: "8px 10px", color: COLORS.gold, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, borderBottom: `2px solid ${COLORS.goldBorder}` }}>Language</th>
                     <th style={{ textAlign: "left", padding: "8px 10px", color: COLORS.gold, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, borderBottom: `2px solid ${COLORS.goldBorder}` }}>Suggested body</th>
                     <th style={{ borderBottom: `2px solid ${COLORS.goldBorder}` }}></th>
                   </tr>
@@ -516,6 +530,7 @@ export default function Settings() {
                       <td style={{ padding: "10px", verticalAlign: "top", whiteSpace: "nowrap" }}>
                         <code style={{ color: COLORS.gold, fontWeight: 700 }}>{t.name}</code>
                       </td>
+                      <td style={{ padding: "10px", verticalAlign: "top", color: "#4a4f57", whiteSpace: "nowrap" }}>{t.language}</td>
                       <td style={{ padding: "10px", verticalAlign: "top", color: "#6d7175", whiteSpace: "pre-wrap", maxWidth: 360 }}>{t.body}</td>
                       <td style={{ padding: "10px", verticalAlign: "top" }}>
                         <button

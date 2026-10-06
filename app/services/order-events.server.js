@@ -57,13 +57,16 @@ export function normalizePhone(raw, defaultCountry) {
 // configurable per shop. See REQUIRED_TEMPLATES below for the full list.
 export const REQUIRED_TEMPLATES = {
   orderConfirmation: { name: "order_confirmation_image", language: "en_US" },
-  shipped: { name: "order_shipped", language: "en_US" },
-  outForDelivery: { name: "order_out_for_delivery", language: "en_US" },
-  delivered: { name: "order_delivered", language: "en_US" },
-  refundInitiated: { name: "order_refund_initiated", language: "en_US" },
-  cancelled: { name: "order_cancelled", language: "en_US" },
-  paid: { name: "order_paid", language: "en_US" },
-  partiallyFulfilled: { name: "order_partially_fulfilled", language: "en_US" },
+  // These 7 are approved in Meta under "English" (en), not "English (US)"
+  // (en_US) like order_confirmation_image — must match exactly or Meta
+  // rejects the send with "Template name does not exist in the translation".
+  shipped: { name: "order_shipped", language: "en" },
+  outForDelivery: { name: "order_out_for_delivery", language: "en" },
+  delivered: { name: "order_delivered", language: "en" },
+  refundInitiated: { name: "order_refund_initiated", language: "en" },
+  cancelled: { name: "order_cancelled", language: "en" },
+  paid: { name: "order_paid", language: "en" },
+  partiallyFulfilled: { name: "order_partially_fulfilled", language: "en" },
 };
 
 /**
