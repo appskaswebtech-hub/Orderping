@@ -6,8 +6,8 @@
 
   export const loader = async ({ request }) => {
     const { admin, billing, session } = await authenticate.admin(request);
-    await requireActivePlan({ admin, billing });
     const shop = session?.shop;
+    await requireActivePlan({ admin, billing, shop });
 
     const stats = { totalNotifications: 0, sent: 0, failed: 0, pending: 0 };
     const settings = {};

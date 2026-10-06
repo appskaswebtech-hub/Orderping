@@ -11,7 +11,20 @@ import prisma from "./db.server";
 // Only charged on live (non-development) stores — see isDevelopmentStore() in
 // app/routes/app.jsx, which skips the billing gate entirely for dev stores
 // rather than trying to model a $0 plan through Shopify's billing API.
+export const BASIC_PLAN = "Basic Plan";
 export const PRO_PLAN = "Pro Plan";
+export const ADVANCED_PLAN = "Advanced Plan";
+export const PAID_PLANS = [BASIC_PLAN, PRO_PLAN, ADVANCED_PLAN];
+
+// Monthly WhatsApp message cap per plan. `null` means unlimited. Enforced in
+// order-events.server.js's checkAndConsumeMessageQuota() against the
+// MESSAGE_LIMIT value stored per shop (see services/billing.server.js, which
+// writes it after confirming an active subscription).
+export const PLAN_MESSAGE_LIMITS = {
+  [BASIC_PLAN]: 500,
+  [PRO_PLAN]: 1000,
+  [ADVANCED_PLAN]: null,
+};
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
@@ -26,14 +39,14 @@ const shopify = shopifyApp({
     expiringOfflineAccessTokens: true,
   },
   billing: {
+    [BASIC_PLAN]: {
+      lineItems: [{ amount: 3.99, currencyCode: "USD", interval: BillingInterval.Every30Days }],
+    },
     [PRO_PLAN]: {
-      lineItems: [
-        {
-          amount: 4.99,
-          currencyCode: "USD",
-          interval: BillingInterval.Every30Days,
-        },
-      ],
+      lineItems: [{ amount: 5.99, currencyCode: "USD", interval: BillingInterval.Every30Days }],
+    },
+    [ADVANCED_PLAN]: {
+      lineItems: [{ amount: 9.99, currencyCode: "USD", interval: BillingInterval.Every30Days }],
     },
   },
   ...(process.env.SHOP_CUSTOM_DOMAIN

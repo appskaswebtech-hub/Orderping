@@ -6,8 +6,8 @@ import db from "../db.server";
 
 export const loader = async ({ request }) => {
   const { admin, billing, session } = await authenticate.admin(request);
-  await requireActivePlan({ admin, billing });
   const shop = session?.shop;
+  await requireActivePlan({ admin, billing, shop });
 
   const url = new URL(request.url);
   const page = Number(url.searchParams.get("page") || "1");

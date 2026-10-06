@@ -8,8 +8,8 @@ import { testConnection } from "../services/whatsapp.server";
 
 export const loader = async ({ request }) => {
   const { admin, billing, session } = await authenticate.admin(request);
-  await requireActivePlan({ admin, billing });
   const shop = session?.shop || admin?.shop || "";
+  await requireActivePlan({ admin, billing, shop });
 
   if (!shop) return { settings: {} };
 

@@ -1,6 +1,6 @@
 import { useLoaderData, useSubmit } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
-import { authenticate, PRO_PLAN } from "../shopify.server";
+import { authenticate, PAID_PLANS } from "../shopify.server";
 import { isDevelopmentStore } from "../services/billing.server";
 
 export const loader = async ({ request }) => {
@@ -11,18 +11,30 @@ export const loader = async ({ request }) => {
     return { isDevStore: true, subscription: null };
   }
 
-  const { appSubscriptions } = await billing.check({ plans: [PRO_PLAN] });
+  const { appSubscriptions } = await billing.check({ plans: PAID_PLANS });
   return { isDevStore: false, subscription: appSubscriptions[0] || null };
 };
 
 export const action = async ({ request }) => {
   const { admin, billing } = await authenticate.admin(request);
   const isDevStore = await isDevelopmentStore(admin);
-  // Dev stores are free and never reach the Subscribe button, but guard the
+  // Dev stores are free and never reach a Subscribe button, but guard the
   // action itself too, in case of a direct/replayed POST.
   if (isDevStore) return new Response(null, { status: 400 });
 
-  await billing.request({ plan: PRO_PLAN });
+  const form = await request.formData();
+  const plan = form.get("plan");
+  if (!PAID_PLANS.includes(plan)) return new Response(null, { status: 400 });
+
+  // Switching plans: cancel the current subscription first, Shopify doesn't
+  // let a shop hold two active AppSubscriptions from the same app at once.
+  const { appSubscriptions } = await billing.check({ plans: PAID_PLANS });
+  const existing = appSubscriptions[0];
+  if (existing && existing.name !== plan) {
+    await billing.cancel({ subscriptionId: existing.id });
+  }
+
+  await billing.request({ plan });
 };
 
 const COLORS = { sent: "#1FA97B", gold: "#B4791E", goldSoft: "#FBF0DC", goldBorder: "#EED9AE" };
@@ -31,28 +43,55 @@ const pageBg = { background: "linear-gradient(180deg, #FDFAF4 0%, #F8F1E4 100%)"
 function planCard({ isCurrent }) {
   return {
     flex: 1,
-    minWidth: 280,
+    minWidth: 250,
     borderRadius: 16,
     background: "#fff",
     boxShadow: "0 1px 2px rgba(16,24,40,0.04), 0 1px 12px rgba(16,24,40,0.05)",
     border: isCurrent ? `2px solid ${COLORS.sent}` : "1px solid rgba(16,24,40,0.04)",
-    padding: "28px 32px",
+    padding: "28px 28px",
     position: "relative",
+    display: "flex",
+    flexDirection: "column",
   };
 }
 
 const FREE_FEATURES = [
-  "All features below, free for testing on development stores",
-  "Not billed, automatically moves to the Pro Plan once the store goes live",
-];
-
-const PRO_FEATURES = [
   "Automatic WhatsApp order confirmations, with a product image and order link",
   "Shipped, out for delivery, and delivered status updates",
   "Refund initiated, order cancelled, and payment confirmed notifications",
-  "Customizable message template and language",
-  "Full notification history log, every send attempt and its status",
+  "Full notification history log",
+  "Unlimited messages while testing, free for development stores",
+];
+
+const SHARED_PAID_FEATURES = [
+  "All 8 order and shipment WhatsApp notification types",
+  "Full notification history log",
   "Customer opt-in controls",
+];
+
+// Plain string literals, not the BASIC_PLAN/PRO_PLAN/ADVANCED_PLAN constants
+// from shopify.server.js — that module is server-only, and importing it for
+// use in this component (not just loader/action) would pull server code
+// into the client bundle. These values must stay in sync with that file.
+const PLAN_DEFS = [
+  {
+    plan: "Basic Plan",
+    price: "$3.99",
+    tagline: "Basic Plan",
+    features: ["Up to 500 messages per month", ...SHARED_PAID_FEATURES],
+  },
+  {
+    plan: "Pro Plan",
+    price: "$5.99",
+    tagline: "Pro Plan",
+    features: ["Up to 1,000 messages per month", ...SHARED_PAID_FEATURES],
+  },
+  {
+    plan: "Advanced Plan",
+    price: "$9.99",
+    tagline: "Advanced Plan",
+    features: ["Unlimited messages", ...SHARED_PAID_FEATURES, "Priority support"],
+  },
 ];
 
 function CheckIcon() {
@@ -65,7 +104,7 @@ function CheckIcon() {
 
 function FeatureList({ features }) {
   return (
-    <ul style={{ listStyle: "none", padding: 0, margin: "18px 0 0", display: "flex", flexDirection: "column", gap: 12 }}>
+    <ul style={{ listStyle: "none", padding: 0, margin: "18px 0 0", display: "flex", flexDirection: "column", gap: 12, flex: 1 }}>
       {features.map((f) => (
         <li key={f} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: "#202223" }}>
           <span style={{ marginTop: 2, flexShrink: 0 }}>
@@ -90,8 +129,11 @@ export default function Billing() {
   const { isDevStore, subscription } = useLoaderData();
   const submit = useSubmit();
 
-  const onSubscribe = () => submit(null, { method: "post" });
-  const isSubscribedToPro = !isDevStore && !!subscription;
+  const onSelectPlan = (plan) => {
+    const form = new FormData();
+    form.append("plan", plan);
+    submit(form, { method: "post" });
+  };
 
   return (
     <s-page heading="Billing">
@@ -106,42 +148,48 @@ export default function Billing() {
               <FeatureList features={FREE_FEATURES} />
               {!isDevStore && (
                 <div style={{ fontSize: 12, color: "#8a8f98", marginTop: 18 }}>
-                  Only available on development/test stores. This store is live, so it's on the Pro Plan instead.
+                  Only available on development/test stores. This store is live, so pick a plan on the right.
                 </div>
               )}
             </div>
 
-            <div style={planCard({ isCurrent: isSubscribedToPro })}>
-              {isSubscribedToPro && <CurrentBadge />}
-              <s-badge tone="neutral">Live stores</s-badge>
-              <div style={{ fontSize: 24, fontWeight: 800, color: "#14181f", marginTop: 14 }}>$4.99 / month</div>
-              <div style={{ fontSize: 13, color: COLORS.gold, fontWeight: 600, marginTop: 2 }}>Pro Plan</div>
-              <FeatureList features={PRO_FEATURES} />
+            {PLAN_DEFS.map((def) => {
+              const isCurrent = !isDevStore && subscription?.name === def.plan;
+              return (
+                <div key={def.plan} style={planCard({ isCurrent })}>
+                  {isCurrent && <CurrentBadge />}
+                  <s-badge tone="neutral">Live stores</s-badge>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: "#14181f", marginTop: 14 }}>{def.price} / month</div>
+                  <div style={{ fontSize: 13, color: COLORS.gold, fontWeight: 600, marginTop: 2 }}>{def.tagline}</div>
+                  <FeatureList features={def.features} />
 
-              {!isDevStore && !subscription && (
-                <div style={{ marginTop: 22 }}>
-                  <button
-                    type="button"
-                    onClick={onSubscribe}
-                    style={{
-                      padding: "12px 22px",
-                      borderRadius: 10,
-                      border: "none",
-                      background: COLORS.sent,
-                      color: "#fff",
-                      fontSize: 14,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Subscribe for $4.99/month
-                  </button>
+                  {!isDevStore && !isCurrent && (
+                    <div style={{ marginTop: 22 }}>
+                      <button
+                        type="button"
+                        onClick={() => onSelectPlan(def.plan)}
+                        style={{
+                          width: "100%",
+                          padding: "12px 18px",
+                          borderRadius: 10,
+                          border: "none",
+                          background: COLORS.sent,
+                          color: "#fff",
+                          fontSize: 14,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {subscription ? "Switch to this plan" : `Subscribe for ${def.price}/month`}
+                      </button>
+                    </div>
+                  )}
+                  {isCurrent && (
+                    <div style={{ fontSize: 12, color: "#8a8f98", marginTop: 18 }}>Status: {subscription.status}</div>
+                  )}
                 </div>
-              )}
-              {isSubscribedToPro && (
-                <div style={{ fontSize: 12, color: "#8a8f98", marginTop: 18 }}>Status: {subscription.status}</div>
-              )}
-            </div>
+              );
+            })}
           </s-stack>
         </s-stack>
       </div>
