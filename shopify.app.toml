@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "31f0727e5e0520bfd9432d3433eea552"
-name = "OrderPing"
+name = "WhatsApp Order Alerts"
 application_url = "https://whatsnotify.kaswebtechsolutions.com/"
 embedded = true
 
