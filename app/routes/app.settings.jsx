@@ -497,6 +497,9 @@ export default function Settings() {
                 <div style={{ fontSize: 13, color: "#6d7175", marginTop: 4 }}>
                   Send from your own phone number using your own Meta credentials and approved templates.
                 </div>
+                <div style={{ fontSize: 12, color: "#8a8f98", marginTop: 8, fontStyle: "italic" }}>
+                  Prefer a done-for-you setup? Contact apps.kaswebtech@gmail.com for assisted onboarding (paid service).
+                </div>
               </button>
             </div>
           </div>
@@ -517,12 +520,12 @@ export default function Settings() {
                 lineHeight: 1.6,
               }}
             >
-              Prefer not to set this up yourself? Our team can configure your WhatsApp Business credentials
-              and message templates on your behalf. Email{" "}
+              Prefer not to set this up yourself? Our team offers a paid, done-for-you setup service to
+              configure your WhatsApp Business credentials and message templates on your behalf. Email{" "}
               <a href="mailto:apps.kaswebtech@gmail.com" style={{ color: COLORS.gold, fontWeight: 700 }}>
                 apps.kaswebtech@gmail.com
               </a>{" "}
-              and we'll take care of the setup for you.
+              to request a quote and get started.
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 480 }}>
               <Field
