@@ -611,54 +611,21 @@ export default function Settings() {
           </>
           )}
 
-          <div style={{ ...cardBase, padding: "24px 28px" }}>
+          <div style={{ ...cardBase, padding: "18px 28px" }}>
             <SectionHeading icon={<GearIcon size={18} />} title="Behavior" />
-            <div style={{ display: "flex", gap: 24, alignItems: "flex-start", flexWrap: "wrap" }}>
-              <div style={{ flex: 1, minWidth: 260, display: "flex", flexDirection: "column", gap: 18 }}>
-                <Toggle label="Enable WhatsApp notifications" name="ENABLED" defaultChecked={isEnabled} />
-                {/*
-                  TEMPORARILY DISABLED while the app is pending Shopify review.
-                  Re-enable once approved.
+            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+              <Toggle label="Enable WhatsApp notifications" name="ENABLED" defaultChecked={isEnabled} />
+              {/*
+                TEMPORARILY DISABLED while the app is pending Shopify review.
+                Re-enable once approved.
 
-                <Toggle
-                  label="Require customer opt-in"
-                  help="Block sending unless the customer accepted marketing, has a whatsapp_opt_in note attribute, or is in the opt-in list."
-                  name="REQUIRE_CUSTOMER_OPT_IN"
-                  defaultChecked={settings.REQUIRE_CUSTOMER_OPT_IN === "true"}
-                />
-                */}
-              </div>
-              <div style={{ position: "relative", width: 100, height: 110, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <span style={{ position: "absolute", top: -2, right: 0 }}>
-                  <SparkleIcon size={14} />
-                </span>
-                <span style={{ position: "absolute", bottom: 4, left: -4 }}>
-                  <SparkleIcon size={12} />
-                </span>
-                <div style={{ color: COLORS.goldSoft }}>
-                  <svg width="80" height="90" viewBox="0 0 24 24" fill={COLORS.goldSoft} stroke={COLORS.goldBorder} strokeWidth="1">
-                    <path d="M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5l-8-3Z" />
-                  </svg>
-                </div>
-                <div
-                  style={{
-                    position: "absolute",
-                    bottom: 10,
-                    right: 8,
-                    width: 34,
-                    height: 34,
-                    borderRadius: "50%",
-                    background: COLORS.sent,
-                    color: "#fff",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    boxShadow: "0 2px 6px rgba(31,169,123,0.35)",
-                  }}
-                >
-                  <ShieldCheckIcon size={18} />
-                </div>
-              </div>
+              <Toggle
+                label="Require customer opt-in"
+                help="Block sending unless the customer accepted marketing, has a whatsapp_opt_in note attribute, or is in the opt-in list."
+                name="REQUIRE_CUSTOMER_OPT_IN"
+                defaultChecked={settings.REQUIRE_CUSTOMER_OPT_IN === "true"}
+              />
+              */}
             </div>
           </div>
 
