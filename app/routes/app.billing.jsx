@@ -27,15 +27,26 @@ export const action = async ({ request }) => {
 
 const COLORS = { sent: "#1FA97B", gold: "#B4791E", goldSoft: "#FBF0DC", goldBorder: "#EED9AE" };
 const pageBg = { background: "linear-gradient(180deg, #FDFAF4 0%, #F8F1E4 100%)", minHeight: "100%", padding: "4px 0" };
-const cardBase = {
-  borderRadius: 16,
-  background: "#fff",
-  boxShadow: "0 1px 2px rgba(16,24,40,0.04), 0 1px 12px rgba(16,24,40,0.05)",
-  border: "1px solid rgba(16,24,40,0.04)",
-  padding: "28px 32px",
-};
 
-const FEATURES = [
+function planCard({ isCurrent }) {
+  return {
+    flex: 1,
+    minWidth: 280,
+    borderRadius: 16,
+    background: "#fff",
+    boxShadow: "0 1px 2px rgba(16,24,40,0.04), 0 1px 12px rgba(16,24,40,0.05)",
+    border: isCurrent ? `2px solid ${COLORS.sent}` : "1px solid rgba(16,24,40,0.04)",
+    padding: "28px 32px",
+    position: "relative",
+  };
+}
+
+const FREE_FEATURES = [
+  "All features below, free for testing on development stores",
+  "Not billed — automatically moves to the Pro Plan once the store goes live",
+];
+
+const PRO_FEATURES = [
   "Automatic WhatsApp order confirmations, with a product image and order link",
   "Shipped, out for delivery, and delivered status updates",
   "Refund initiated, order cancelled, and payment confirmed notifications",
@@ -52,10 +63,10 @@ function CheckIcon() {
   );
 }
 
-function FeatureList() {
+function FeatureList({ features }) {
   return (
     <ul style={{ listStyle: "none", padding: 0, margin: "18px 0 0", display: "flex", flexDirection: "column", gap: 12 }}>
-      {FEATURES.map((f) => (
+      {features.map((f) => (
         <li key={f} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: "#202223" }}>
           <span style={{ marginTop: 2, flexShrink: 0 }}>
             <CheckIcon />
@@ -67,49 +78,47 @@ function FeatureList() {
   );
 }
 
+function CurrentBadge() {
+  return (
+    <div style={{ position: "absolute", top: 20, right: 24 }}>
+      <s-badge tone="success">Current plan</s-badge>
+    </div>
+  );
+}
+
 export default function Billing() {
   const { isDevStore, subscription } = useLoaderData();
   const submit = useSubmit();
 
   const onSubscribe = () => submit(null, { method: "post" });
+  const isSubscribedToPro = !isDevStore && !!subscription;
 
   return (
     <s-page heading="Billing">
       <div style={pageBg}>
         <s-stack direction="block" gap="loose">
-          {isDevStore ? (
-            <div style={cardBase}>
-              <s-badge tone="success" size="large">Free — development store</s-badge>
+          <s-stack direction="inline" gap="base">
+            <div style={planCard({ isCurrent: isDevStore })}>
+              {isDevStore && <CurrentBadge />}
+              <s-badge tone="neutral">Development stores</s-badge>
               <div style={{ fontSize: 24, fontWeight: 800, color: "#14181f", marginTop: 14 }}>$0 / month</div>
-              <div style={{ fontSize: 13, color: "#8a8f98", marginTop: 4 }}>
-                Development stores are never charged. This store moves to the $4.99/month Pro Plan
-                automatically only once it becomes a live store — all features are available right
-                now at no cost for testing.
-              </div>
-              <FeatureList />
-            </div>
-          ) : (
-            <div style={cardBase}>
-              {subscription ? (
-                <>
-                  <s-badge tone="success" size="large">Subscribed — {subscription.name}</s-badge>
-                  <div style={{ fontSize: 13, color: "#8a8f98", marginTop: 8 }}>Status: {subscription.status}</div>
-                </>
-              ) : (
-                <>
-                  <s-badge tone="warning" size="large">Not subscribed</s-badge>
-                  <div style={{ fontSize: 13, color: "#8a8f98", marginTop: 8 }}>
-                    Subscribe to unlock OrderPing for this store.
-                  </div>
-                </>
+              <div style={{ fontSize: 13, color: COLORS.gold, fontWeight: 600, marginTop: 2 }}>Free Plan</div>
+              <FeatureList features={FREE_FEATURES} />
+              {!isDevStore && (
+                <div style={{ fontSize: 12, color: "#8a8f98", marginTop: 18 }}>
+                  Only available on development/test stores — this store is live, so it's on the Pro Plan instead.
+                </div>
               )}
+            </div>
 
-              <div style={{ fontSize: 24, fontWeight: 800, color: "#14181f", marginTop: 18 }}>$4.99 / month</div>
-              <div style={{ fontSize: 13, color: COLORS.gold, fontWeight: 600 }}>Pro Plan</div>
+            <div style={planCard({ isCurrent: isSubscribedToPro })}>
+              {isSubscribedToPro && <CurrentBadge />}
+              <s-badge tone="neutral">Live stores</s-badge>
+              <div style={{ fontSize: 24, fontWeight: 800, color: "#14181f", marginTop: 14 }}>$4.99 / month</div>
+              <div style={{ fontSize: 13, color: COLORS.gold, fontWeight: 600, marginTop: 2 }}>Pro Plan</div>
+              <FeatureList features={PRO_FEATURES} />
 
-              <FeatureList />
-
-              {!subscription && (
+              {!isDevStore && !subscription && (
                 <div style={{ marginTop: 22 }}>
                   <button
                     type="button"
@@ -129,8 +138,16 @@ export default function Billing() {
                   </button>
                 </div>
               )}
+              {isDevStore && (
+                <div style={{ fontSize: 12, color: "#8a8f98", marginTop: 18 }}>
+                  This store is on the free Development Plan, so no subscription is needed yet.
+                </div>
+              )}
+              {isSubscribedToPro && (
+                <div style={{ fontSize: 12, color: "#8a8f98", marginTop: 18 }}>Status: {subscription.status}</div>
+              )}
             </div>
-          )}
+          </s-stack>
         </s-stack>
       </div>
     </s-page>
