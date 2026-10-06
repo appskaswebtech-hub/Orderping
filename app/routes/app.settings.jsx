@@ -497,9 +497,6 @@ export default function Settings() {
                 <div style={{ fontSize: 13, color: "#6d7175", marginTop: 4 }}>
                   Send from your own phone number using your own Meta credentials and approved templates.
                 </div>
-                <div style={{ fontSize: 12, color: "#8a8f98", marginTop: 8, fontStyle: "italic" }}>
-                  Prefer a done-for-you setup? Contact apps.kaswebtech@gmail.com for assisted onboarding (paid service).
-                </div>
               </button>
             </div>
           </div>
@@ -515,7 +512,7 @@ export default function Settings() {
                 borderRadius: 10,
                 padding: "14px 16px",
                 marginBottom: 20,
-                fontSize: 13,
+                fontSize: 15,
                 color: "#6d5520",
                 lineHeight: 1.6,
               }}
