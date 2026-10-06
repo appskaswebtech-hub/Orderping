@@ -23,6 +23,20 @@ export const loader = async ({ request }) => {
   return { settings: masked };
 };
 
+// Must match the settingKey values in REQUIRED_TEMPLATES further down this
+// file (and in order-events.server.js) — kept as a plain list here since
+// it's needed before that array is defined below.
+const NOTIFICATION_TYPE_SETTING_KEYS = [
+  "NOTIFY_ORDER_CONFIRMATION",
+  "NOTIFY_SHIPPED",
+  "NOTIFY_OUT_FOR_DELIVERY",
+  "NOTIFY_DELIVERED",
+  "NOTIFY_REFUND_INITIATED",
+  "NOTIFY_CANCELLED",
+  "NOTIFY_PAID",
+  "NOTIFY_PARTIALLY_FULFILLED",
+];
+
 export const action = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
   const shop = session?.shop || admin?.shop || "";
@@ -72,6 +86,9 @@ export const action = async ({ request }) => {
   await upsert("REQUIRE_CUSTOMER_OPT_IN", requireOptIn);
   if (accessToken && accessToken !== "*****") {
     await upsert("META_ACCESS_TOKEN", accessToken);
+  }
+  for (const key of NOTIFICATION_TYPE_SETTING_KEYS) {
+    await upsert(key, form.get(key) === "on" ? "true" : "false");
   }
 
   return new Response(JSON.stringify({ saved: true }), { status: 200, headers: { "Content-Type": "application/json" } });
@@ -175,48 +192,56 @@ const REQUIRED_TEMPLATES = [
     label: "Order confirmation",
     name: "order_confirmation_image",
     language: "English (US)",
+    settingKey: "NOTIFY_ORDER_CONFIRMATION",
     body: "Hi {{1}}, your order #{{2}} has been confirmed!\n\nItem(s): {{3}}\nTotal: {{4}}\n\nThank you for shopping with us!",
   },
   {
     label: "Shipped",
     name: "order_shipped",
     language: "English",
+    settingKey: "NOTIFY_SHIPPED",
     body: "Hi {{1}}, good news! Your order #{{2}} has shipped.\nTracking: {{3}}",
   },
   {
     label: "Out for delivery",
     name: "order_out_for_delivery",
     language: "English",
+    settingKey: "NOTIFY_OUT_FOR_DELIVERY",
     body: "Hi {{1}}, your order #{{2}} is out for delivery and should arrive today.",
   },
   {
     label: "Delivered",
     name: "order_delivered",
     language: "English",
+    settingKey: "NOTIFY_DELIVERED",
     body: "Hi {{1}}, your order #{{2}} has been delivered. Thank you for shopping with us!",
   },
   {
     label: "Refund initiated",
     name: "order_refund_initiated",
     language: "English",
+    settingKey: "NOTIFY_REFUND_INITIATED",
     body: "Hi {{1}}, a refund of {{3}} has been initiated for your order #{{2}}. It should reflect in 5-10 business days.",
   },
   {
     label: "Order cancelled",
     name: "order_cancelled",
     language: "English",
+    settingKey: "NOTIFY_CANCELLED",
     body: "Hi {{1}}, your order #{{2}} has been cancelled. Reason: {{3}}",
   },
   {
     label: "Payment confirmed",
     name: "order_paid",
     language: "English",
+    settingKey: "NOTIFY_PAID",
     body: "Hi {{1}}, we've received your payment of {{3}} for order #{{2}}. Thank you!",
   },
   {
     label: "Partially fulfilled",
     name: "order_partially_fulfilled",
     language: "English",
+    settingKey: "NOTIFY_PARTIALLY_FULFILLED",
     body: "Hi {{1}}, part of your order #{{2}} has shipped. The rest is on its way soon.",
   },
 ];
@@ -305,6 +330,9 @@ export default function Settings() {
       "REQUIRE_CUSTOMER_OPT_IN",
       document.querySelector('input[name="REQUIRE_CUSTOMER_OPT_IN"]')?.checked ? "on" : "off",
     );
+    for (const key of NOTIFICATION_TYPE_SETTING_KEYS) {
+      form.append(key, document.querySelector(`input[name="${key}"]`)?.checked ? "on" : "off");
+    }
     return form;
   };
 
@@ -477,6 +505,25 @@ export default function Settings() {
           <>
           <div style={{ ...cardBase, padding: "24px 28px" }}>
             <SectionHeading icon={<KeyIcon size={18} />} title="Meta WhatsApp credentials" />
+            <div
+              style={{
+                background: COLORS.goldSoft,
+                border: `1px solid ${COLORS.goldBorder}`,
+                borderRadius: 10,
+                padding: "14px 16px",
+                marginBottom: 20,
+                fontSize: 13,
+                color: "#6d5520",
+                lineHeight: 1.6,
+              }}
+            >
+              Prefer not to set this up yourself? Our team can configure your WhatsApp Business credentials
+              and message templates on your behalf. Email{" "}
+              <a href="mailto:apps.kaswebtech@gmail.com" style={{ color: COLORS.gold, fontWeight: 700 }}>
+                apps.kaswebtech@gmail.com
+              </a>{" "}
+              and we'll take care of the setup for you.
+            </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 480 }}>
               <Field
                 label="Access token"
@@ -612,6 +659,23 @@ export default function Settings() {
                   <ShieldCheckIcon size={18} />
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div style={{ ...cardBase, padding: "24px 28px" }}>
+            <SectionHeading icon={<DocIcon size={18} />} title="Notification types" />
+            <div style={{ fontSize: 13, color: "#6d7175", marginBottom: 16 }}>
+              Choose which order events send a WhatsApp message. All are on by default.
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
+              {REQUIRED_TEMPLATES.map((t) => (
+                <Toggle
+                  key={t.settingKey}
+                  label={t.label}
+                  name={t.settingKey}
+                  defaultChecked={settings[t.settingKey] !== "false"}
+                />
+              ))}
             </div>
           </div>
 

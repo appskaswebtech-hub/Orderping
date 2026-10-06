@@ -226,6 +226,25 @@ async function handleOrderCreate(request) {
       return new Response();
     }
 
+    if (template.settingKey && settings[template.settingKey] === "false") {
+      await db.notificationLog.upsert({
+        where: { shop_shopifyOrderId_notificationType: { shop, shopifyOrderId, notificationType: "whatsapp" } },
+        update: { customerName, status: "failed", errorMessage: "event_disabled_by_shop" },
+        create: {
+          shop,
+          shopifyOrderId,
+          orderNumber,
+          customerName,
+          customerPhone: null,
+          notificationType: "whatsapp",
+          status: "failed",
+          errorMessage: "event_disabled_by_shop",
+        },
+      }).catch(() => null);
+
+      return new Response();
+    }
+
     if (requireOptIn) {
         // Check common opt-in signals: customer.accepts_marketing, note_attributes 'whatsapp_opt_in', or CustomerOptIn table
         const acceptedMarketing = order?.customer?.accepts_marketing === true;

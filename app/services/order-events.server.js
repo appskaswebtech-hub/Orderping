@@ -55,18 +55,21 @@ export function normalizePhone(raw, defaultCountry) {
 // each event type to be sent — we can't approve templates on their behalf,
 // so the name has to be a fixed, documented contract rather than something
 // configurable per shop. See REQUIRED_TEMPLATES below for the full list.
+// `settingKey` is the AppSetting key a shop can set to "false" to turn that
+// specific notification type off, independent of the master ENABLED toggle —
+// see the "Notification types" section on the Settings page.
 export const REQUIRED_TEMPLATES = {
-  orderConfirmation: { name: "order_confirmation_image", language: "en_US" },
+  orderConfirmation: { name: "order_confirmation_image", language: "en_US", settingKey: "NOTIFY_ORDER_CONFIRMATION" },
   // These 7 are approved in Meta under "English" (en), not "English (US)"
   // (en_US) like order_confirmation_image — must match exactly or Meta
   // rejects the send with "Template name does not exist in the translation".
-  shipped: { name: "order_shipped", language: "en" },
-  outForDelivery: { name: "order_out_for_delivery", language: "en" },
-  delivered: { name: "order_delivered", language: "en" },
-  refundInitiated: { name: "order_refund_initiated", language: "en" },
-  cancelled: { name: "order_cancelled", language: "en" },
-  paid: { name: "order_paid", language: "en" },
-  partiallyFulfilled: { name: "order_partially_fulfilled", language: "en" },
+  shipped: { name: "order_shipped", language: "en", settingKey: "NOTIFY_SHIPPED" },
+  outForDelivery: { name: "order_out_for_delivery", language: "en", settingKey: "NOTIFY_OUT_FOR_DELIVERY" },
+  delivered: { name: "order_delivered", language: "en", settingKey: "NOTIFY_DELIVERED" },
+  refundInitiated: { name: "order_refund_initiated", language: "en", settingKey: "NOTIFY_REFUND_INITIATED" },
+  cancelled: { name: "order_cancelled", language: "en", settingKey: "NOTIFY_CANCELLED" },
+  paid: { name: "order_paid", language: "en", settingKey: "NOTIFY_PAID" },
+  partiallyFulfilled: { name: "order_partially_fulfilled", language: "en", settingKey: "NOTIFY_PARTIALLY_FULFILLED" },
 };
 
 /**
@@ -119,6 +122,11 @@ export async function sendOrderStatusNotification({
 
   if (settings.ENABLED === "false") {
     await logFailure("disabled_by_shop");
+    return;
+  }
+
+  if (template.settingKey && settings[template.settingKey] === "false") {
+    await logFailure("event_disabled_by_shop");
     return;
   }
 
