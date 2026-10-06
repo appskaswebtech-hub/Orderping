@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useFetcher, useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
@@ -46,6 +47,12 @@ export const action = async ({ request }) => {
       create: { shop, key, value },
     });
   };
+
+  if (actionType === "setMode") {
+    const mode = form.get("MESSAGING_MODE") === "custom" ? "custom" : "managed";
+    await upsert("MESSAGING_MODE", mode);
+    return new Response(JSON.stringify({ modeSaved: true }), { status: 200, headers: { "Content-Type": "application/json" } });
+  }
 
   if (actionType === "test") {
     try {
@@ -235,6 +242,15 @@ export default function Settings() {
     fetcher.submit(buildFormData(), { method: "post" });
   };
 
+  const [mode, setMode] = useState(settings.MESSAGING_MODE === "custom" ? "custom" : "managed");
+  const onSelectMode = (next) => {
+    setMode(next);
+    const form = new FormData();
+    form.append("MESSAGING_MODE", next);
+    form.append("actionType", "setMode");
+    fetcher.submit(form, { method: "post" });
+  };
+
   const onTest = () => {
     const form = buildFormData();
     form.append("actionType", "test");
@@ -309,6 +325,71 @@ export default function Settings() {
             </div>
           </div>
 
+          <div style={{ ...cardBase, padding: "24px 28px" }}>
+            <SectionHeading icon={<BoltIcon size={18} />} title="Messaging setup" />
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={() => onSelectMode("managed")}
+                style={{
+                  flex: 1,
+                  minWidth: 240,
+                  textAlign: "left",
+                  cursor: "pointer",
+                  borderRadius: 14,
+                  padding: "18px 20px",
+                  border: mode === "managed" ? `2px solid ${COLORS.sent}` : `1px solid ${COLORS.goldBorder}`,
+                  background: mode === "managed" ? COLORS.sentSoft : "#FFFDF8",
+                  position: "relative",
+                }}
+              >
+                {mode === "managed" && (
+                  <div style={{ position: "absolute", top: 14, right: 14 }}>
+                    <s-badge tone="success">Selected</s-badge>
+                  </div>
+                )}
+                <div style={sectionIconWrap(mode === "managed" ? COLORS.sent : COLORS.goldSoft, mode === "managed" ? "#fff" : COLORS.gold)}>
+                  <BoltIcon size={18} />
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#14181f", marginTop: 12 }}>Use OrderPing's default setup</div>
+                <div style={{ fontSize: 13, color: "#6d7175", marginTop: 4 }}>
+                  No setup needed. Messages send through OrderPing's own WhatsApp number and templates.
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onSelectMode("custom")}
+                style={{
+                  flex: 1,
+                  minWidth: 240,
+                  textAlign: "left",
+                  cursor: "pointer",
+                  borderRadius: 14,
+                  padding: "18px 20px",
+                  border: mode === "custom" ? `2px solid ${COLORS.sent}` : `1px solid ${COLORS.goldBorder}`,
+                  background: mode === "custom" ? COLORS.sentSoft : "#FFFDF8",
+                  position: "relative",
+                }}
+              >
+                {mode === "custom" && (
+                  <div style={{ position: "absolute", top: 14, right: 14 }}>
+                    <s-badge tone="success">Selected</s-badge>
+                  </div>
+                )}
+                <div style={sectionIconWrap(mode === "custom" ? COLORS.sent : COLORS.goldSoft, mode === "custom" ? "#fff" : COLORS.gold)}>
+                  <KeyIcon size={18} />
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#14181f", marginTop: 12 }}>Connect my own WhatsApp Business account</div>
+                <div style={{ fontSize: 13, color: "#6d7175", marginTop: 4 }}>
+                  Send from your own phone number using your own Meta credentials and approved templates.
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {mode === "custom" && (
+          <>
           <div style={{ ...cardBase, padding: "24px 28px" }}>
             <SectionHeading icon={<KeyIcon size={18} />} title="Meta WhatsApp credentials" />
             <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 480 }}>
@@ -409,6 +490,8 @@ export default function Settings() {
               </div>
             </div>
           </div>
+          </>
+          )}
 
           <div style={{ ...cardBase, padding: "24px 28px" }}>
             <SectionHeading icon={<GearIcon size={18} />} title="Behavior" />
