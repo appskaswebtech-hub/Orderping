@@ -43,7 +43,7 @@ function planCard({ isCurrent }) {
 
 const FREE_FEATURES = [
   "All features below, free for testing on development stores",
-  "Not billed — automatically moves to the Pro Plan once the store goes live",
+  "Not billed, automatically moves to the Pro Plan once the store goes live",
 ];
 
 const PRO_FEATURES = [
@@ -51,7 +51,7 @@ const PRO_FEATURES = [
   "Shipped, out for delivery, and delivered status updates",
   "Refund initiated, order cancelled, and payment confirmed notifications",
   "Customizable message template and language",
-  "Full notification history log — every send attempt and its status",
+  "Full notification history log, every send attempt and its status",
   "Customer opt-in controls",
 ];
 
@@ -106,7 +106,7 @@ export default function Billing() {
               <FeatureList features={FREE_FEATURES} />
               {!isDevStore && (
                 <div style={{ fontSize: 12, color: "#8a8f98", marginTop: 18 }}>
-                  Only available on development/test stores — this store is live, so it's on the Pro Plan instead.
+                  Only available on development/test stores. This store is live, so it's on the Pro Plan instead.
                 </div>
               )}
             </div>
@@ -134,13 +134,8 @@ export default function Billing() {
                       cursor: "pointer",
                     }}
                   >
-                    Subscribe — $4.99/month
+                    Subscribe for $4.99/month
                   </button>
-                </div>
-              )}
-              {isDevStore && (
-                <div style={{ fontSize: 12, color: "#8a8f98", marginTop: 18 }}>
-                  This store is on the free Development Plan, so no subscription is needed yet.
                 </div>
               )}
               {isSubscribedToPro && (
