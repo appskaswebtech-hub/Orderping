@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useFetcher, useLoaderData } from "react-router";
+import { Link, useFetcher, useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { requireActivePlan } from "../services/billing.server";
@@ -505,6 +505,14 @@ export default function Settings() {
           <>
           <div style={{ ...cardBase, padding: "24px 28px" }}>
             <SectionHeading icon={<KeyIcon size={18} />} title="Meta WhatsApp credentials" />
+            <div style={{ fontSize: 13, color: "#6d7175", marginBottom: 16 }}>
+              New to this? Check the{" "}
+              <Link to="/app/meta-setup-guide" style={{ color: COLORS.gold, fontWeight: 700 }}>
+                documentation
+              </Link>{" "}
+              for step-by-step instructions on getting your Access token, Phone number ID, and WhatsApp
+              Business Account ID from Meta.
+            </div>
             <div
               style={{
                 background: COLORS.goldSoft,
