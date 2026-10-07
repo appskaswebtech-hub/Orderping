@@ -53,10 +53,30 @@ export default function MetaSetupGuide() {
         <s-stack direction="block" gap="loose">
           <div style={{ ...cardBase, background: "linear-gradient(90deg, #FEFCF7 0%, #FDF8ED 100%)" }}>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#14181f" }}>Get your WhatsApp credentials</div>
-            <div style={{ fontSize: 13, color: "#6d7175", marginTop: 6 }}>
-              Follow these steps in Meta Business Manager to get the Access Token, Phone Number ID, and
-              WhatsApp Business Account ID needed in Settings.
+            <div style={{ fontSize: 13, color: "#6d7175", marginTop: 6, marginBottom: 16 }}>
+              The quick version is below, tailored to exactly what this app needs. For the full, always
+              up-to-date walkthrough straight from Meta (including screenshots and edge cases), use their
+              official guide instead:
             </div>
+            <a
+              href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started"
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "10px 18px",
+                borderRadius: 10,
+                background: COLORS.sent,
+                color: "#fff",
+                fontSize: 13,
+                fontWeight: 700,
+                textDecoration: "none",
+              }}
+            >
+              Open Meta's official WhatsApp Cloud API guide ↗
+            </a>
           </div>
 
           <div style={cardBase}>
