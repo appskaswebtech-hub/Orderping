@@ -77,6 +77,31 @@ export default function MetaSetupGuide() {
             >
               Open Meta's official WhatsApp Cloud API guide ↗
             </a>
+
+            <div style={{ fontSize: 13, color: "#6d7175", marginTop: 20, marginBottom: 10 }}>
+              Need to verify your business and your phone number first? Check Meta's official documentation
+              on setting up your business and getting your phone number verified:
+            </div>
+            <a
+              href="https://developers.facebook.com/docs/whatsapp/cloud-api/phone-numbers"
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "10px 18px",
+                borderRadius: 10,
+                border: `1px solid ${COLORS.goldBorder}`,
+                background: "#fff",
+                color: COLORS.gold,
+                fontSize: 13,
+                fontWeight: 700,
+                textDecoration: "none",
+              }}
+            >
+              Business setup &amp; phone number verification guide ↗
+            </a>
           </div>
 
           <div style={cardBase}>
