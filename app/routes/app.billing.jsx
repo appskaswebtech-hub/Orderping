@@ -50,7 +50,7 @@ const FREE_FEATURES = [
 ];
 
 const PRO_FEATURES = [
-  "All 8 order and shipment WhatsApp notification types",
+  "8 Order & Shipment WhatsApp Notifications",
   "Unlimited messages",
   "Full notification history log",
   "Customer opt-in controls",
