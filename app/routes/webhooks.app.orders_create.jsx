@@ -1,7 +1,7 @@
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { sendTemplateMessage } from "../services/whatsapp.server";
-import { REQUIRED_TEMPLATES, checkAndConsumeMessageQuota } from "../services/order-events.server";
+import { REQUIRED_TEMPLATES } from "../services/order-events.server";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 
 function getPhoneFromOrder(order) {
@@ -371,25 +371,6 @@ async function handleOrderCreate(request) {
     console.error("[order-ping] idempotency_check_error (continuing)", err);
   }
   console.log(`[order-ping] checkpoint idempotency_passed`);
-
-  if (!(await checkAndConsumeMessageQuota(shop, settings))) {
-    await db.notificationLog.upsert({
-      where: { shop_shopifyOrderId_notificationType: { shop, shopifyOrderId, notificationType: "whatsapp" } },
-      update: { customerName, customerPhone: phone, status: "failed", errorMessage: "message_limit_reached" },
-      create: {
-        shop,
-        shopifyOrderId,
-        orderNumber,
-        customerName,
-        customerPhone: phone,
-        notificationType: "whatsapp",
-        status: "failed",
-        errorMessage: "message_limit_reached",
-      },
-    }).catch(() => null);
-
-    return new Response();
-  }
 
   // Create pending record
   let record;

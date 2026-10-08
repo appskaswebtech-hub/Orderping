@@ -17,37 +17,6 @@ export function getCustomerNameFromOrder(order) {
 }
 
 /**
- * Enforces the monthly WhatsApp message cap for the shop's billing plan
- * (MESSAGE_LIMIT is written by requireActivePlan() in billing.server.js after
- * confirming an active subscription — empty/missing means unlimited, e.g.
- * dev stores or the Advanced plan). Returns false and leaves the counter
- * untouched if the shop is already at its cap for the current calendar month;
- * otherwise increments the counter and returns true. Shared across all 8
- * notification types since the cap is a total, not per-event-type.
- */
-export async function checkAndConsumeMessageQuota(shop, settings) {
-  const limit = settings.MESSAGE_LIMIT;
-  if (!limit) return true;
-
-  const period = new Date().toISOString().slice(0, 7);
-  const count = settings.USAGE_PERIOD === period ? Number(settings.USAGE_COUNT || 0) : 0;
-  if (count >= Number(limit)) return false;
-
-  const nextCount = String(count + 1);
-  await db.appSetting.upsert({
-    where: { shop_key: { shop, key: "USAGE_PERIOD" } },
-    update: { value: period },
-    create: { shop, key: "USAGE_PERIOD", value: period },
-  });
-  await db.appSetting.upsert({
-    where: { shop_key: { shop, key: "USAGE_COUNT" } },
-    update: { value: nextCount },
-    create: { shop, key: "USAGE_COUNT", value: nextCount },
-  });
-  return true;
-}
-
-/**
  * Fulfillment/refund webhooks don't include the customer or phone number, only
  * the order_id — fetch the full order via the Admin REST API so the same
  * phone/name extraction used for order-confirmation can be reused.
@@ -189,11 +158,6 @@ export async function sendOrderStatusNotification({
     if (existing) return;
   } catch (err) {
     console.error("[order-ping] idempotency_check_error (continuing)", err);
-  }
-
-  if (!(await checkAndConsumeMessageQuota(shop, settings))) {
-    await logFailure("message_limit_reached", phone);
-    return;
   }
 
   let record;
