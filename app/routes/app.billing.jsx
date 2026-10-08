@@ -80,10 +80,11 @@ function FeatureList({ features }) {
   );
 }
 
-function CurrentBadge() {
+function CardBadges({ segment, isCurrent }) {
   return (
-    <div style={{ position: "absolute", top: 20, right: 24 }}>
-      <s-badge tone="success">Current plan</s-badge>
+    <div style={{ position: "absolute", top: 20, right: 24, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+      {isCurrent && <s-badge tone="success">Current plan</s-badge>}
+      <s-badge tone="neutral">{segment}</s-badge>
     </div>
   );
 }
@@ -101,10 +102,9 @@ export default function Billing() {
         <s-stack direction="block" gap="loose">
           <s-stack direction="inline" gap="base">
             <div style={planCard({ isCurrent: isDevStore })}>
-              {isDevStore && <CurrentBadge />}
-              <s-badge tone="neutral">Development stores</s-badge>
-              <div style={{ fontSize: 24, fontWeight: 800, color: "#14181f", marginTop: 14 }}>$0 / month</div>
-              <div style={{ fontSize: 13, color: COLORS.gold, fontWeight: 600, marginTop: 2 }}>Free Plan</div>
+              <CardBadges segment="Development stores" isCurrent={isDevStore} />
+              <div style={{ fontSize: 13, color: COLORS.gold, fontWeight: 600 }}>Free Plan</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: "#14181f", marginTop: 6 }}>$0 / month</div>
               <FeatureList features={FREE_FEATURES} />
               {!isDevStore && (
                 <div style={{ fontSize: 12, color: "#8a8f98", marginTop: 18 }}>
@@ -114,10 +114,9 @@ export default function Billing() {
             </div>
 
             <div style={planCard({ isCurrent: isSubscribedToPro })}>
-              {isSubscribedToPro && <CurrentBadge />}
-              <s-badge tone="neutral">Live stores</s-badge>
-              <div style={{ fontSize: 24, fontWeight: 800, color: "#14181f", marginTop: 14 }}>$14.99 / month</div>
-              <div style={{ fontSize: 13, color: COLORS.gold, fontWeight: 600, marginTop: 2 }}>Pro Plan</div>
+              <CardBadges segment="Live stores" isCurrent={isSubscribedToPro} />
+              <div style={{ fontSize: 13, color: COLORS.gold, fontWeight: 600 }}>Pro Plan</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: "#14181f", marginTop: 6 }}>$14.99 / month</div>
               <FeatureList features={PRO_FEATURES} />
 
               {!isDevStore && !subscription && (
