@@ -1,18 +1,9 @@
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { hasNotificationPlan } from "../services/billing.server";
 import { sendTemplateMessage } from "../services/whatsapp.server";
-import { REQUIRED_TEMPLATES } from "../services/order-events.server";
+import { getPhoneFromOrder, REQUIRED_TEMPLATES } from "../services/order-events.server";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
-
-function getPhoneFromOrder(order) {
-  // Try common locations for a phone number, in priority order
-  if (order?.phone) return order.phone;
-  if (order?.customer?.phone) return order.customer.phone;
-  if (order?.customer?.default_address?.phone) return order.customer.default_address.phone;
-  if (order?.shipping_address?.phone) return order.shipping_address.phone;
-  if (order?.billing_address?.phone) return order.billing_address.phone;
-  return null;
-}
 
 function buildItemsSummary(order) {
   const items = order?.line_items || [];
@@ -196,7 +187,7 @@ async function handleOrderCreate(request) {
     const rows = await db.appSetting.findMany({ where: { shop } });
     settings = Object.fromEntries(rows.map((r) => [r.key, r.value]));
 
-    enabled = settings.ENABLED !== "false";
+    enabled = settings.ENABLED === "true" && settings.ENABLED_OPT_IN_CONFIRMED === "true";
     requireOptIn = settings.REQUIRE_CUSTOMER_OPT_IN === "true";
     defaultCountry = settings.DEFAULT_COUNTRY || undefined;
     // Falls back to the developer's own WhatsApp credentials (env vars) only for
@@ -221,6 +212,25 @@ async function handleOrderCreate(request) {
           notificationType: "whatsapp",
           status: "failed",
           errorMessage: "disabled_by_shop",
+        },
+      }).catch(() => null);
+
+      return new Response();
+    }
+
+    if (!await hasNotificationPlan(shop)) {
+      await db.notificationLog.upsert({
+        where: { shop_shopifyOrderId_notificationType: { shop, shopifyOrderId, notificationType: "whatsapp" } },
+        update: { customerName, status: "failed", errorMessage: "active_paid_plan_required" },
+        create: {
+          shop,
+          shopifyOrderId,
+          orderNumber,
+          customerName,
+          customerPhone: null,
+          notificationType: "whatsapp",
+          status: "failed",
+          errorMessage: "active_paid_plan_required",
         },
       }).catch(() => null);
 

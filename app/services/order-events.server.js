@@ -1,13 +1,13 @@
 import db from "../db.server";
 import { sendTemplateMessage } from "./whatsapp.server";
+import { hasNotificationPlan } from "./billing.server";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 
 export function getPhoneFromOrder(order) {
   if (order?.phone) return order.phone;
-  if (order?.customer?.phone) return order.customer.phone;
-  if (order?.customer?.default_address?.phone) return order.customer.default_address.phone;
   if (order?.shipping_address?.phone) return order.shipping_address.phone;
   if (order?.billing_address?.phone) return order.billing_address.phone;
+  if (order?.customer?.phone) return order.customer.phone;
   return null;
 }
 
@@ -120,7 +120,12 @@ export async function sendOrderStatusNotification({
     return;
   }
 
-  if (settings.ENABLED === "false") {
+  if (!await hasNotificationPlan(shop)) {
+    await logFailure("active_paid_plan_required");
+    return;
+  }
+
+  if (settings.ENABLED !== "true" || settings.ENABLED_OPT_IN_CONFIRMED !== "true") {
     await logFailure("disabled_by_shop");
     return;
   }

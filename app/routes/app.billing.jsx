@@ -11,7 +11,7 @@ export const loader = async ({ request }) => {
     return { isDevStore: true, subscription: null };
   }
 
-  const { appSubscriptions } = await billing.check({ plans: PAID_PLANS });
+  const { appSubscriptions } = await billing.check({ plans: PAID_PLANS, isTest: false });
   return { isDevStore: false, subscription: appSubscriptions[0] || null };
 };
 
@@ -22,7 +22,7 @@ export const action = async ({ request }) => {
   // action itself too, in case of a direct/replayed POST.
   if (isDevStore) return new Response(null, { status: 400 });
 
-  await billing.request({ plan: PAID_PLANS[0] });
+  await billing.request({ plan: PAID_PLANS[0], isTest: false });
 };
 
 const COLORS = { sent: "#1FA97B", gold: "#B4791E", goldSoft: "#FBF0DC", goldBorder: "#EED9AE" };
@@ -116,7 +116,7 @@ export default function Billing() {
             <div style={planCard({ isCurrent: isSubscribedToPro })}>
               <CardBadges segment="Live stores" isCurrent={isSubscribedToPro} />
               <div style={{ fontSize: 13, color: COLORS.gold, fontWeight: 600 }}>Pro Plan</div>
-              <div style={{ fontSize: 24, fontWeight: 800, color: "#14181f", marginTop: 6 }}>$14.99 / month</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: "#14181f", marginTop: 6 }}>$15.99 / month</div>
               <FeatureList features={PRO_FEATURES} />
 
               {!isDevStore && !subscription && (
@@ -135,7 +135,7 @@ export default function Billing() {
                       cursor: "pointer",
                     }}
                   >
-                    Subscribe for $14.99/month
+                    Subscribe for $15.99/month
                   </button>
                 </div>
               )}

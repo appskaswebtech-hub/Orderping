@@ -9,7 +9,7 @@ import { testConnection } from "../services/whatsapp.server";
 export const loader = async ({ request }) => {
   const { admin, billing, session } = await authenticate.admin(request);
   const shop = session?.shop || admin?.shop || "";
-  await requireActivePlan({ admin, billing, shop });
+  await requireActivePlan({ admin, billing, request, shop });
 
   if (!shop) return { settings: {} };
 
@@ -83,6 +83,7 @@ export const action = async ({ request }) => {
   await upsert("META_WABA_ID", wabaId);
   await upsert("META_API_VERSION", apiVersion);
   await upsert("ENABLED", enabled);
+  await upsert("ENABLED_OPT_IN_CONFIRMED", "true");
   await upsert("REQUIRE_CUSTOMER_OPT_IN", requireOptIn);
   if (accessToken && accessToken !== "*****") {
     await upsert("META_ACCESS_TOKEN", accessToken);
@@ -355,7 +356,7 @@ export default function Settings() {
     fetcher.submit(form, { method: "post" });
   };
 
-  const isEnabled = settings.ENABLED !== "false";
+  const isEnabled = settings.ENABLED === "true" && settings.ENABLED_OPT_IN_CONFIRMED === "true";
   // In "managed" mode, credentials aren't expected — OrderPing's own are used
   // via the .env fallback, so there's nothing to warn the merchant about here.
   const hasOwnCredentials = !!(settings.META_ACCESS_TOKEN && settings.META_PHONE_NUMBER_ID);

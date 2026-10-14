@@ -7,7 +7,7 @@
   export const loader = async ({ request }) => {
     const { admin, billing, session } = await authenticate.admin(request);
     const shop = session?.shop;
-    await requireActivePlan({ admin, billing, shop });
+    await requireActivePlan({ admin, billing, request, shop });
 
     const stats = { totalNotifications: 0, sent: 0, failed: 0, pending: 0 };
     const settings = {};
@@ -245,7 +245,7 @@
     const analytics = stats || { totalNotifications: 0, sent: 0, failed: 0, pending: 0 };
     // TEMPORARILY UNUSED — see the commented-out banner below.
     const isConfigured = !!(settings?.META_ACCESS_TOKEN && settings?.META_PHONE_NUMBER_ID);
-    const isEnabled = settings?.ENABLED !== "false";
+    const isEnabled = settings?.ENABLED === "true" && settings?.ENABLED_OPT_IN_CONFIRMED === "true";
 
     return (
       <s-page heading="OrderPing">
