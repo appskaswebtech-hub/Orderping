@@ -2,8 +2,7 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { hasNotificationPlan } from "../services/billing.server";
 import { sendTemplateMessage } from "../services/whatsapp.server";
-import { getPhoneFromOrder, REQUIRED_TEMPLATES } from "../services/order-events.server";
-import { parsePhoneNumberFromString } from "libphonenumber-js";
+import { getPhoneFromOrder, getCountryCodeFromOrder, normalizePhone, REQUIRED_TEMPLATES } from "../services/order-events.server";
 
 function buildItemsSummary(order) {
   const items = order?.line_items || [];
@@ -123,21 +122,6 @@ async function buildTemplateComponents(template, { customerName, orderNumber, sh
   ];
 }
 
-function normalizePhone(raw, defaultCountry) {
-  if (!raw || typeof raw !== "string") return null;
-  try {
-    const pn = parsePhoneNumberFromString(raw, defaultCountry || undefined);
-    if (!pn || !pn.isValid()) return null;
-    // return digits only international (no +)
-    return pn.number.replace(/^\+/, "");
-  } catch (e) {
-    // fallback to digits-only with basic checks
-    const digits = String(raw).replace(/\D/g, "");
-    if (digits.length < 8) return null;
-    return digits;
-  }
-}
-
 export const action = async ({ request }) => {
   try {
     return await handleOrderCreate(request);
@@ -189,7 +173,7 @@ async function handleOrderCreate(request) {
 
     enabled = settings.ENABLED === "true" && settings.ENABLED_OPT_IN_CONFIRMED === "true";
     requireOptIn = settings.REQUIRE_CUSTOMER_OPT_IN === "true";
-    defaultCountry = settings.DEFAULT_COUNTRY || undefined;
+    defaultCountry = getCountryCodeFromOrder(order) || settings.DEFAULT_COUNTRY || undefined;
     // Falls back to the developer's own WhatsApp credentials (env vars) only for
     // stores that haven't entered their own yet in Settings.
     credentials = {

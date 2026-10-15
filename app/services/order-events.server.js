@@ -17,6 +17,22 @@ export function getCustomerNameFromOrder(order) {
 }
 
 /**
+ * Shopify order addresses include an ISO 3166-1 alpha-2 country_code (e.g.
+ * "IN", "US"). Using the customer's own region to parse their phone number
+ * (instead of a single shop-wide default) correctly handles the common case
+ * where a customer enters their number in local format with no country code
+ * or leading "+" at checkout.
+ */
+export function getCountryCodeFromOrder(order) {
+  return (
+    order?.shipping_address?.country_code ||
+    order?.billing_address?.country_code ||
+    order?.customer?.default_address?.country_code ||
+    null
+  );
+}
+
+/**
  * Fulfillment/refund webhooks don't include the customer or phone number, only
  * the order_id — fetch the full order via the Admin REST API so the same
  * phone/name extraction used for order-confirmation can be reused.
@@ -43,10 +59,13 @@ export function normalizePhone(raw, defaultCountry) {
     const pn = parsePhoneNumberFromString(raw, defaultCountry || undefined);
     if (!pn || !pn.isValid()) return null;
     return pn.number.replace(/^\+/, "");
-  } catch (e) {
-    const digits = String(raw).replace(/\D/g, "");
-    if (digits.length < 8) return null;
-    return digits;
+  } catch (err) {
+    // Do NOT fall back to a bare digit string here — without a confirmed
+    // country code, that string could be misread as a completely different
+    // (real) phone number by Meta's API, sending someone else's customer's
+    // order confirmation. Fail closed instead.
+    console.error("[order-ping] phone_parse_error", err);
+    return null;
   }
 }
 
@@ -150,7 +169,7 @@ export async function sendOrderStatusNotification({
     await logFailure("no_customer_phone");
     return;
   }
-  const phone = normalizePhone(rawPhone, settings.DEFAULT_COUNTRY || undefined);
+  const phone = normalizePhone(rawPhone, getCountryCodeFromOrder(order) || settings.DEFAULT_COUNTRY || undefined);
   if (!phone) {
     await logFailure("invalid_phone_format", rawPhone);
     return;
