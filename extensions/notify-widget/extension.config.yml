@@ -1,0 +1,5 @@
+name: notify-widget
+label: Notify Me widget
+version: 1.0.0
+# This is a minimal scaffold for a theme-style extension. Replace `app_url` with your app's URL.
+app_url: https://example.com
