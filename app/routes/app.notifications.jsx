@@ -1,4 +1,5 @@
-import { useLoaderData } from "react-router";
+import { useState } from "react";
+import { useLoaderData, useSearchParams } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { requireActivePlan } from "../services/billing.server";
@@ -18,14 +19,19 @@ export const loader = async ({ request }) => {
 
   let items = [];
   let total = 0;
+  let statusCounts = { sent: 0, failed: 0, pending: 0 };
   try {
     if (shop && db && db.notificationLog && typeof db.notificationLog.findMany === "function") {
-      const [fetched, cnt] = await Promise.all([
+      const [fetched, cnt, sentCnt, failedCnt, pendingCnt] = await Promise.all([
         db.notificationLog.findMany({ where, orderBy: { createdAt: "desc" }, take: limit, skip }),
         db.notificationLog.count({ where }),
+        db.notificationLog.count({ where: { ...where, status: "sent" } }),
+        db.notificationLog.count({ where: { ...where, status: "failed" } }),
+        db.notificationLog.count({ where: { ...where, status: "pending" } }),
       ]);
       items = fetched || [];
       total = cnt || 0;
+      statusCounts = { sent: sentCnt || 0, failed: failedCnt || 0, pending: pendingCnt || 0 };
     } else {
       console.warn("NotificationLog model not available on Prisma client");
     }
@@ -33,7 +39,7 @@ export const loader = async ({ request }) => {
     console.error("Error loading notification logs", err);
   }
 
-  return { items, total, page, limit };
+  return { items, total, page, limit, statusCounts };
 };
 
 const COLORS = {
@@ -121,6 +127,34 @@ function StatusBadge({ status }) {
   return <s-badge tone={s ? s.tone : "neutral"}>{status}</s-badge>;
 }
 
+const DETAIL_TRUNCATE_LENGTH = 140;
+
+function DetailCell({ text }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!text || text.length <= DETAIL_TRUNCATE_LENGTH) return <>{text || "—"}</>;
+  return (
+    <>
+      {expanded ? text : `${text.slice(0, DETAIL_TRUNCATE_LENGTH)}…`}{" "}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        style={{
+          background: "none",
+          border: "none",
+          padding: 0,
+          color: COLORS.pending,
+          fontSize: 13,
+          fontWeight: 600,
+          cursor: "pointer",
+          textDecoration: "underline",
+        }}
+      >
+        {expanded ? "View less" : "View more"}
+      </button>
+    </>
+  );
+}
+
 const th = {
   textAlign: "left",
   padding: "12px 20px",
@@ -171,11 +205,19 @@ function SummaryPill({ bg, fg, icon, value, label }) {
 }
 
 export default function Notifications() {
-  const { items, total, page, limit } = useLoaderData();
+  const { items, total, page, limit, statusCounts } = useLoaderData();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const totalPages = Math.max(1, Math.ceil(total / limit));
 
-  const sentCount = items.filter((r) => r.status === "sent").length;
-  const failedCount = items.filter((r) => r.status === "failed").length;
-  const pendingCount = items.filter((r) => r.status === "pending").length;
+  const goToPage = (p) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("page", String(p));
+    setSearchParams(next);
+  };
+
+  const sentCount = statusCounts?.sent ?? 0;
+  const failedCount = statusCounts?.failed ?? 0;
+  const pendingCount = statusCounts?.pending ?? 0;
 
   return (
     <s-page heading="Notifications">
@@ -296,7 +338,7 @@ export default function Notifications() {
                             <StatusBadge status={r.status} />
                           </td>
                           <td style={{ ...td, whiteSpace: "pre-wrap", wordBreak: "break-word", color: "#6d7175" }}>
-                            {detail}
+                            <DetailCell text={detail} />
                           </td>
                         </tr>
                       );
@@ -305,8 +347,60 @@ export default function Notifications() {
                 </tbody>
               </table>
             </div>
-            <div style={{ marginTop: 16, fontSize: 13, color: "#8a8f98" }}>
-              Showing {items.length} of {total} notifications (page {page}, {limit} per page)
+            <div
+              style={{
+                marginTop: 16,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 12,
+              }}
+            >
+              <div style={{ fontSize: 13, color: "#8a8f98" }}>
+                Showing {items.length} of {total} notifications (page {page} of {totalPages})
+              </div>
+              {totalPages > 1 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => goToPage(page - 1)}
+                    disabled={page <= 1}
+                    style={{
+                      padding: "6px 14px",
+                      borderRadius: 8,
+                      border: `1px solid ${COLORS.goldBorder}`,
+                      background: page <= 1 ? "#f6f6f7" : "#fff",
+                      color: page <= 1 ? "#a7acb1" : "#14181f",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: page <= 1 ? "default" : "pointer",
+                    }}
+                  >
+                    Previous
+                  </button>
+                  <span style={{ fontSize: 13, color: "#6d7175" }}>
+                    Page {page} of {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => goToPage(page + 1)}
+                    disabled={page >= totalPages}
+                    style={{
+                      padding: "6px 14px",
+                      borderRadius: 8,
+                      border: `1px solid ${COLORS.goldBorder}`,
+                      background: page >= totalPages ? "#f6f6f7" : "#fff",
+                      color: page >= totalPages ? "#a7acb1" : "#14181f",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: page >= totalPages ? "default" : "pointer",
+                    }}
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </s-stack>
