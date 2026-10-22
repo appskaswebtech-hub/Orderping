@@ -1,4 +1,4 @@
-import { useLoaderData, useSubmit } from "react-router";
+import { Link, useLoaderData, useNavigation, useSubmit } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate, PAID_PLANS } from "../shopify.server";
 import { isDevelopmentStore } from "../services/billing.server";
@@ -11,7 +11,10 @@ export const loader = async ({ request }) => {
     return { isDevStore: true, subscription: null };
   }
 
-  const { appSubscriptions } = await billing.check({ plans: PAID_PLANS, isTest: false });
+  const { appSubscriptions } = await billing.check({
+    plans: PAID_PLANS,
+    isTest: false,
+  });
   return { isDevStore: false, subscription: appSubscriptions[0] || null };
 };
 
@@ -25,21 +28,7 @@ export const action = async ({ request }) => {
   await billing.request({ plan: PAID_PLANS[0], isTest: false });
 };
 
-const COLORS = { sent: "#1FA97B", gold: "#B4791E", goldSoft: "#FBF0DC", goldBorder: "#EED9AE" };
-const pageBg = { background: "linear-gradient(180deg, #FDFAF4 0%, #F8F1E4 100%)", minHeight: "100%", padding: "4px 0" };
-
-function planCard({ isCurrent }) {
-  return {
-    flex: 1,
-    minWidth: 280,
-    borderRadius: 16,
-    background: "#fff",
-    boxShadow: "0 1px 2px rgba(16,24,40,0.04), 0 1px 12px rgba(16,24,40,0.05)",
-    border: isCurrent ? `2px solid ${COLORS.sent}` : "1px solid rgba(16,24,40,0.04)",
-    padding: "28px 32px",
-    position: "relative",
-  };
-}
+import PreferencesIcon from "../components/PreferencesIcon";
 
 const FREE_FEATURES = [
   "Automatic WhatsApp order confirmations, with a product image and order link",
@@ -57,99 +46,236 @@ const PRO_FEATURES = [
   "Priority support",
 ];
 
-function CheckIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={COLORS.sent} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
-
+/* eslint-disable react/prop-types -- Receives the local plan feature arrays. */
 function FeatureList({ features }) {
   return (
-    <ul style={{ listStyle: "none", padding: 0, margin: "18px 0 0", display: "flex", flexDirection: "column", gap: 12 }}>
-      {features.map((f) => (
-        <li key={f} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: "#202223" }}>
-          <span style={{ marginTop: 2, flexShrink: 0 }}>
-            <CheckIcon />
+    <ul className="op-plan-features">
+      {features.map((feature) => (
+        <li key={feature}>
+          <span>
+            <PreferencesIcon name="check" size={15} />
           </span>
-          {f}
+          {feature}
         </li>
       ))}
     </ul>
   );
 }
-
-function CardBadges({ segment, isCurrent }) {
-  return (
-    <div style={{ position: "absolute", top: 20, right: 24, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-      {isCurrent && <s-badge tone="success">Current plan</s-badge>}
-      <s-badge tone="neutral">{segment}</s-badge>
-    </div>
-  );
-}
+/* eslint-enable react/prop-types */
 
 export default function Billing() {
   const { isDevStore, subscription } = useLoaderData();
   const submit = useSubmit();
-
-  const onSubscribe = () => submit(null, { method: "post" });
+  const navigation = useNavigation();
   const isSubscribedToPro = !isDevStore && !!subscription;
+  const isSubscribing = navigation.state !== "idle";
+  const onSubscribe = () => submit(null, { method: "post" });
 
   return (
     <s-page heading="Billing">
-      <div style={pageBg}>
-        <s-stack direction="block" gap="loose">
-          <s-stack direction="inline" gap="base">
-            <div style={planCard({ isCurrent: isDevStore })}>
-              <CardBadges segment="Development stores" isCurrent={isDevStore} />
-              <div style={{ fontSize: 13, color: COLORS.gold, fontWeight: 600 }}>Free Plan</div>
-              <div style={{ fontSize: 24, fontWeight: 800, color: "#14181f", marginTop: 6 }}>$0 / month</div>
-              <FeatureList features={FREE_FEATURES} />
-              {!isDevStore && (
-                <div style={{ fontSize: 12, color: "#8a8f98", marginTop: 18 }}>
-                  Only available on development/test stores. This store is live, so it's on the Pro Plan instead.
+      <div className="op-preferences op-billing">
+        <header className="op-page-header">
+          <div>
+            <div className="op-kicker">BUILT TO GROW WITH YOU</div>
+            <h1>Plans & billing</h1>
+            <p>
+              Keep customers connected, from your first order to your next
+              milestone.
+            </p>
+          </div>
+          <span className="op-billing-trust">
+            <PreferencesIcon name="shield" size={16} />
+            Billed through Shopify
+          </span>
+        </header>
+
+        <section className="op-billing-overview">
+          <span className="op-connection-icon">
+            <PreferencesIcon name="card" size={25} />
+          </span>
+          <div className="op-connection-copy">
+            <span className="op-kicker">YOUR SUBSCRIPTION</span>
+            <h2>
+              {isDevStore
+                ? "Development plan"
+                : isSubscribedToPro
+                  ? "You're on Pro"
+                  : "Ready for your next chapter?"}
+            </h2>
+            <p>
+              {isDevStore
+                ? "Build, test, and get everything ready. Your development store is covered."
+                : isSubscribedToPro
+                  ? "Your store has access to all Pro features and unlimited messages."
+                  : "Activate Pro to start sending WhatsApp order updates on your live store."}
+            </p>
+          </div>
+          <div className="op-overview-price">
+            {isDevStore || isSubscribedToPro ? (
+              <>
+                <strong>
+                  {isDevStore ? "$0" : "$15.99"}
+                  <small> USD / month</small>
+                </strong>
+                <span className="op-pill op-pill-success">
+                  <span className="op-status-dot" />
+                  {isDevStore
+                    ? "Free for development"
+                    : `Status: ${subscription.status}`}
+                </span>
+              </>
+            ) : (
+              <span className="op-pill op-pill-warning">
+                No active subscription
+              </span>
+            )}
+          </div>
+        </section>
+
+        <div className="op-plans-heading">
+          <h2>A simple plan for every stage</h2>
+          <p>
+            All the order updates your customers need. One place to manage them.
+          </p>
+        </div>
+        <div className="op-plans-grid">
+          <section
+            className={`op-plan-card ${isDevStore ? "op-plan-current" : ""}`}
+          >
+            <div className="op-plan-top">
+              <span className="op-plan-icon">
+                <PreferencesIcon name="key" size={22} />
+              </span>
+              <span className="op-pill">Development stores</span>
+            </div>
+            <h2>Free</h2>
+            <p className="op-plan-description">
+              A little room to build something great.
+            </p>
+            <div className="op-plan-price">
+              $0<span> USD / month</span>
+            </div>
+            <p className="op-plan-caption">
+              For development and test stores only
+            </p>
+            <div className="op-plan-divider" />
+            <h3>Everything you need to get started</h3>
+            <FeatureList features={FREE_FEATURES} />
+            <div className="op-plan-footer">
+              {isDevStore ? (
+                <div className="op-plan-current-label">
+                  <PreferencesIcon name="check" size={17} />
+                  Your current plan
+                </div>
+              ) : (
+                <div className="op-plan-availability">
+                  Available on development stores only
                 </div>
               )}
+              <p>
+                {isDevStore
+                  ? "Free while you build and test your store."
+                  : "Running a live store? Pro has you covered."}
+              </p>
             </div>
+          </section>
 
-            <div style={planCard({ isCurrent: isSubscribedToPro })}>
-              <CardBadges segment="Live stores" isCurrent={isSubscribedToPro} />
-              <div style={{ fontSize: 13, color: COLORS.gold, fontWeight: 600 }}>Pro Plan</div>
-              <div style={{ fontSize: 24, fontWeight: 800, color: "#14181f", marginTop: 6 }}>$15.99 / month</div>
-              <FeatureList features={PRO_FEATURES} />
-
-              {!isDevStore && !subscription && (
-                <div style={{ marginTop: 22 }}>
-                  <button
-                    type="button"
-                    onClick={onSubscribe}
-                    style={{
-                      padding: "12px 22px",
-                      borderRadius: 10,
-                      border: "none",
-                      background: COLORS.sent,
-                      color: "#fff",
-                      fontSize: 14,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Subscribe for $15.99/month
-                  </button>
+          <section
+            className={`op-plan-card op-plan-pro ${isSubscribedToPro ? "op-plan-current" : ""}`}
+          >
+            <div className="op-plan-ribbon">
+              <PreferencesIcon name="bolt" size={14} />
+              MADE FOR LIVE STORES
+            </div>
+            <div className="op-plan-top">
+              <span className="op-plan-icon">
+                <PreferencesIcon name="bolt" size={22} />
+              </span>
+              <span className="op-pill op-pill-success">
+                All features included
+              </span>
+            </div>
+            <h2>Pro</h2>
+            <p className="op-plan-description">
+              Better updates. Happier customers.
+            </p>
+            <div className="op-plan-price">
+              $15.99<span> USD / month</span>
+            </div>
+            <p className="op-plan-caption">One plan. Unlimited messages.</p>
+            <div className="op-plan-divider" />
+            <h3>Your customer communication toolkit</h3>
+            <FeatureList features={PRO_FEATURES} />
+            <div className="op-plan-footer">
+              {isSubscribedToPro ? (
+                <div className="op-plan-current-label">
+                  <PreferencesIcon name="check" size={17} />
+                  Your current plan
                 </div>
+              ) : isDevStore ? (
+                <div className="op-plan-availability">
+                  Available when your store goes live
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="op-button op-button-primary op-subscribe-button"
+                  onClick={onSubscribe}
+                  disabled={isSubscribing}
+                >
+                  {isSubscribing ? "Opening Shopify..." : "Subscribe to Pro"}
+                  <PreferencesIcon name="arrow" size={17} />
+                </button>
               )}
-              {isSubscribedToPro && (
-                <div style={{ fontSize: 12, color: "#8a8f98", marginTop: 18 }}>Status: {subscription.status}</div>
-              )}
+              <p>
+                {isSubscribedToPro
+                  ? "You're all set. Keep your customers in the loop."
+                  : isDevStore
+                    ? "Keep testing for free on your development plan."
+                    : "You'll review and approve the charge in Shopify."}
+              </p>
             </div>
-          </s-stack>
-        </s-stack>
+          </section>
+        </div>
+
+        <div className="op-billing-notes">
+          <div>
+            <span className="op-section-icon">
+              <PreferencesIcon name="shield" />
+            </span>
+            <div>
+              <h3>Simple, secure billing</h3>
+              <p>
+                Your subscription is handled through Shopify, so you can easily
+                keep track of your app charges.
+              </p>
+            </div>
+          </div>
+          <div>
+            <span className="op-section-icon">
+              <PreferencesIcon name="chat" />
+            </span>
+            <div>
+              <h3>Need a hand?</h3>
+              <p>
+                Have a billing question?{" "}
+                <a href="mailto:apps.kaswebtech@gmail.com">
+                  Get in touch with our team.
+                </a>
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="op-billing-bottom">
+          <PreferencesIcon name="chat" size={16} />
+          <span>Make every order feel personal.</span>
+          <Link to="/app/settings" className="op-text-link">
+            Go to settings <PreferencesIcon name="arrow" size={15} />
+          </Link>
+        </div>
       </div>
     </s-page>
   );
 }
 
-export const headers = (headersArgs) => {
-  return boundary.headers(headersArgs);
-};
+export const headers = (headersArgs) => boundary.headers(headersArgs);

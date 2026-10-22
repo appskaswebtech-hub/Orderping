@@ -32,6 +32,9 @@ importers:
       '@shopify/shopify-app-session-storage-prisma':
         specifier: ^9.0.0
         version: 9.0.1(@prisma/client@6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3))(@shopify/shopify-api@13.1.0)(@shopify/shopify-app-session-storage@5.0.1(@shopify/shopify-api@13.1.0))(prisma@6.19.3(typescript@5.9.3))
+      dotenv:
+        specifier: ^16.6.1
+        version: 16.6.1
       isbot:
         specifier: ^5.1.31
         version: 5.2.1

@@ -1,9 +1,36 @@
-import { useState } from "react";
-import { useLoaderData, useSearchParams } from "react-router";
+﻿import {
+  Form,
+  Link,
+  useLoaderData,
+  useNavigation,
+  useRevalidator,
+  useSearchParams,
+} from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { requireActivePlan } from "../services/billing.server";
 import db from "../db.server";
+
+const STATUSES = [
+  {
+    key: "sent",
+    label: "Sent",
+    icon: "check",
+    description: "Sent to WhatsApp",
+  },
+  {
+    key: "failed",
+    label: "Failed",
+    icon: "alert",
+    description: "Needs your attention",
+  },
+  {
+    key: "pending",
+    label: "Pending",
+    icon: "clock",
+    description: "Waiting to be sent",
+  },
+];
 
 export const loader = async ({ request }) => {
   const { admin, billing, session } = await authenticate.admin(request);
@@ -11,404 +38,561 @@ export const loader = async ({ request }) => {
   await requireActivePlan({ admin, billing, request, shop });
 
   const url = new URL(request.url);
-  const page = Number(url.searchParams.get("page") || "1");
-  const limit = Math.min(Number(url.searchParams.get("limit") || "50"), 200);
-  const skip = (page - 1) * limit;
-
-  const where = { shop };
+  const pageInput = Number(url.searchParams.get("page") || "1");
+  const limitInput = Number(url.searchParams.get("limit") || "50");
+  let page = Number.isSafeInteger(pageInput) && pageInput > 0 ? pageInput : 1;
+  const limit =
+    Number.isSafeInteger(limitInput) && limitInput > 0
+      ? Math.min(limitInput, 200)
+      : 50;
+  const query = (url.searchParams.get("q") || "").trim().slice(0, 100);
+  const requestedStatus = url.searchParams.get("status");
+  const status = STATUSES.some((item) => item.key === requestedStatus)
+    ? requestedStatus
+    : "all";
+  const where = {
+    shop,
+    ...(status !== "all" ? { status } : {}),
+    ...(query
+      ? {
+          OR: [
+            "orderNumber",
+            "shopifyOrderId",
+            "customerName",
+            "customerPhone",
+          ].map((field) => ({ [field]: { contains: query } })),
+        }
+      : {}),
+  };
 
   let items = [];
   let total = 0;
-  let statusCounts = { sent: 0, failed: 0, pending: 0 };
+  const summary = { total: 0, sent: 0, failed: 0, pending: 0 };
+  let unavailable = false;
   try {
-    if (shop && db && db.notificationLog && typeof db.notificationLog.findMany === "function") {
-      const [fetched, cnt, sentCnt, failedCnt, pendingCnt] = await Promise.all([
-        db.notificationLog.findMany({ where, orderBy: { createdAt: "desc" }, take: limit, skip }),
-        db.notificationLog.count({ where }),
-        db.notificationLog.count({ where: { ...where, status: "sent" } }),
-        db.notificationLog.count({ where: { ...where, status: "failed" } }),
-        db.notificationLog.count({ where: { ...where, status: "pending" } }),
-      ]);
-      items = fetched || [];
-      total = cnt || 0;
-      statusCounts = { sent: sentCnt || 0, failed: failedCnt || 0, pending: pendingCnt || 0 };
-    } else {
-      console.warn("NotificationLog model not available on Prisma client");
+    if (!shop || !db?.notificationLog)
+      throw new Error("Notification log is unavailable");
+    const [count, groups] = await Promise.all([
+      db.notificationLog.count({ where }),
+      db.notificationLog.groupBy({
+        by: ["status"],
+        where: { shop },
+        _count: { _all: true },
+      }),
+    ]);
+    total = count;
+    for (const group of groups) {
+      summary.total += group._count._all;
+      if (STATUSES.some((item) => item.key === group.status))
+        summary[group.status] = group._count._all;
     }
+    page = Math.min(page, Math.max(1, Math.ceil(total / limit)));
+    items = await db.notificationLog.findMany({
+      where,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: limit,
+      skip: (page - 1) * limit,
+    });
   } catch (err) {
+    unavailable = true;
     console.error("Error loading notification logs", err);
   }
-
-  return { items, total, page, limit, statusCounts };
+  return { items, total, page, limit, query, status, summary, unavailable };
 };
 
-const COLORS = {
-  sent: "#1FA97B",
-  failed: "#E5484D",
-  pending: "#2B66FF",
-  gold: "#B4791E",
-  goldSoft: "#FBF0DC",
-  goldBorder: "#EED9AE",
-};
-
-const pageBg = { background: "linear-gradient(180deg, #FDFAF4 0%, #F8F1E4 100%)", minHeight: "100%", padding: "4px 0" };
-
-const cardBase = {
-  borderRadius: 16,
-  background: "#fff",
-  boxShadow: "0 1px 2px rgba(16,24,40,0.04), 0 1px 12px rgba(16,24,40,0.05)",
-  border: "1px solid rgba(16,24,40,0.04)",
-  position: "relative",
-  overflow: "hidden",
-};
-
-function Icon({ children, size = 20 }) {
+// Private presentation components only receive props from this route.
+/* eslint-disable react/prop-types */
+function LogIcon({ name, size = 20 }) {
+  const paths = {
+    chat: (
+      <>
+        <path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 9 9 0 0 1-4-.9L3 21l1.9-5.5a9 9 0 0 1-.9-4 8.5 8.5 0 0 1 17 0Z" />
+        <path d="M8 10h8M8 14h5" />
+      </>
+    ),
+    chart: <path d="M4 4v16h16M9 16v-5M14 16V7M19 16v-3" />,
+    check: <path d="m5 12 4 4L19 6" />,
+    alert: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v6M12 17h.01" />
+      </>
+    ),
+    clock: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </>
+    ),
+    search: (
+      <>
+        <circle cx="10.5" cy="10.5" r="6.5" />
+        <path d="m16 16 4 4" />
+      </>
+    ),
+    refresh: (
+      <>
+        <path d="M20 7v5h-5M4 17v-5h5" />
+        <path d="M6.1 7a7 7 0 0 1 11.6-1L20 9M4 15l2.3 3a7 7 0 0 0 11.6-1" />
+      </>
+    ),
+    settings: (
+      <>
+        <path d="M4 7h16M4 17h16" />
+        <circle cx="9" cy="7" r="3" fill="currentColor" stroke="none" />
+        <circle cx="15" cy="17" r="3" fill="currentColor" stroke="none" />
+      </>
+    ),
+    arrow: <path d="M5 12h14m-6-6 6 6-6 6" />,
+    back: <path d="M19 12H5m6-6-6 6 6 6" />,
+  };
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      {children}
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {paths[name] || paths.chat}
     </svg>
   );
 }
-const DocIcon = (p) => (
-  <Icon {...p}>
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
-    <path d="M14 2v6h6" />
-    <path d="M9 13h6M9 17h6" />
-  </Icon>
-);
-const ListIcon = (p) => (
-  <Icon {...p}>
-    <path d="M8 6h13M8 12h13M8 18h13" />
-    <path d="M3 6h.01M3 12h.01M3 18h.01" />
-  </Icon>
-);
-const CheckIcon = (p) => (
-  <Icon {...p}>
-    <path d="M20 6 9 17l-5-5" />
-  </Icon>
-);
-const XIcon = (p) => (
-  <Icon {...p}>
-    <path d="M18 6 6 18M6 6l12 12" />
-  </Icon>
-);
-const ClockIcon = (p) => (
-  <Icon {...p}>
-    <circle cx="12" cy="12" r="9" />
-    <path d="M12 7v5l3 3" />
-  </Icon>
-);
-const BellIcon = (p) => (
-  <Icon {...p}>
-    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-  </Icon>
-);
-const EnvelopeIcon = ({ size = 48 }) => (
-  <svg width={size} height={size} viewBox="0 0 48 34" fill="none">
-    <path d="M2 4C2 2 4 1 6 1h36c2 0 4 1 4 3v26c0 2-2 3-4 3H6c-2 0-4-1-4-3V4Z" fill="#FBF0DC" stroke="#EED9AE" strokeWidth="1.5" />
-    <path d="M4 3 24 20 44 3" stroke="#EED9AE" strokeWidth="1.5" fill="none" />
-  </svg>
-);
-const SparkleIcon = ({ size = 14 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="#EED9AE">
-    <path d="M12 2 14 10 22 12 14 14 12 22 10 14 2 12 10 10Z" />
-  </svg>
-);
-
-const STATUS_STYLE = {
-  sent: { tone: "success", color: COLORS.sent },
-  failed: { tone: "critical", color: COLORS.failed },
-  pending: { tone: "info", color: COLORS.pending },
-};
 
 function StatusBadge({ status }) {
-  const s = STATUS_STYLE[status];
-  return <s-badge tone={s ? s.tone : "neutral"}>{status}</s-badge>;
-}
-
-const DETAIL_TRUNCATE_LENGTH = 140;
-
-function DetailCell({ text }) {
-  const [expanded, setExpanded] = useState(false);
-  if (!text || text.length <= DETAIL_TRUNCATE_LENGTH) return <>{text || "—"}</>;
+  const known = STATUSES.find((item) => item.key === status);
   return (
-    <>
-      {expanded ? text : `${text.slice(0, DETAIL_TRUNCATE_LENGTH)}…`}{" "}
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        style={{
-          background: "none",
-          border: "none",
-          padding: 0,
-          color: COLORS.pending,
-          fontSize: 13,
-          fontWeight: 600,
-          cursor: "pointer",
-          textDecoration: "underline",
-        }}
-      >
-        {expanded ? "View less" : "View more"}
-      </button>
-    </>
+    <span className={`op-log-status op-log-status-${known ? status : "other"}`}>
+      <LogIcon name={known?.icon || "clock"} size={13} />
+      {known?.label || status || "Unknown"}
+    </span>
   );
 }
+/* eslint-enable react/prop-types */
 
-const th = {
-  textAlign: "left",
-  padding: "12px 20px",
-  borderBottom: `2px solid ${COLORS.goldBorder}`,
-  fontSize: 11,
-  fontWeight: 700,
-  color: COLORS.gold,
-  textTransform: "uppercase",
-  letterSpacing: 0.6,
+const UPDATE_NAMES = {
+  whatsapp: "Order confirmation",
+  whatsapp_shipped: "Shipped",
+  whatsapp_out_for_delivery: "Out for delivery",
+  whatsapp_delivered: "Delivered",
+  whatsapp_refund: "Refund initiated",
+  whatsapp_cancelled: "Cancelled",
+  whatsapp_paid: "Payment received",
+  whatsapp_partially_fulfilled: "Partially fulfilled",
 };
-const td = { padding: "14px 20px", verticalAlign: "top", fontSize: 14, color: "#202223" };
 
-function SummaryPill({ bg, fg, icon, value, label }) {
+function formatUpdate(type) {
   return (
-    <div
-      style={{
-        flex: 1,
-        minWidth: 180,
-        borderRadius: 14,
-        background: bg,
-        padding: "16px 20px",
-        display: "flex",
-        alignItems: "center",
-        gap: 14,
-      }}
-    >
-      <div
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: "50%",
-          background: fg,
-          color: "#fff",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
-        {icon}
-      </div>
-      <div>
-        <div style={{ fontSize: 26, fontWeight: 800, color: "#14181f", letterSpacing: -0.5, lineHeight: 1 }}>{value}</div>
-        <div style={{ fontSize: 13, color: "#6d7175", marginTop: 2 }}>{label}</div>
-      </div>
-    </div>
+    UPDATE_NAMES[type] ||
+    (type
+      ? type
+          .replaceAll("_", " ")
+          .replace(/^./, (letter) => letter.toUpperCase())
+      : "Order update")
   );
 }
 
+/* eslint-disable jsx-a11y/no-noninteractive-tabindex -- The scroll region needs keyboard focus so the table can be scrolled with arrow keys. */
 export default function Notifications() {
-  const { items, total, page, limit, statusCounts } = useLoaderData();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const { items, total, page, limit, query, status, summary, unavailable } =
+    useLoaderData();
+  const [searchParams] = useSearchParams();
+  const navigation = useNavigation();
+  const revalidator = useRevalidator();
+  const busy = navigation.state !== "idle" || revalidator.state !== "idle";
+  const filtered = !!query || status !== "all";
+  const pages = Math.max(1, Math.ceil(total / limit));
+  const rangeStart = total ? (page - 1) * limit + 1 : 0;
+  const rangeEnd = Math.min(page * limit, total);
 
-  const goToPage = (p) => {
+  const logUrl = (changes = {}) => {
     const next = new URLSearchParams(searchParams);
-    next.set("page", String(p));
-    setSearchParams(next);
+    for (const [key, value] of Object.entries(changes)) {
+      if (value == null || value === "" || value === "all") next.delete(key);
+      else next.set(key, String(value));
+    }
+    const encoded = next.toString();
+    return `/app/notifications${encoded ? `?${encoded}` : ""}`;
   };
-
-  const sentCount = statusCounts?.sent ?? 0;
-  const failedCount = statusCounts?.failed ?? 0;
-  const pendingCount = statusCounts?.pending ?? 0;
+  const clearUrl = logUrl({ q: null, status: null, page: null });
 
   return (
     <s-page heading="Notifications">
-      <div style={pageBg}>
-        <s-stack direction="block" gap="loose">
-          <div
-            style={{
-              ...cardBase,
-              borderBottom: `2px solid ${COLORS.goldBorder}`,
-              padding: "22px 28px",
-              display: "flex",
-              alignItems: "center",
-              gap: 16,
-              background: "linear-gradient(90deg, #FEFCF7 0%, #FDF8ED 100%)",
-            }}
-          >
-            <div
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: "50%",
-                background: COLORS.goldSoft,
-                border: `1px solid ${COLORS.goldBorder}`,
-                color: COLORS.gold,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
+      <div className="op-dashboard op-notifications">
+        <header className="op-page-header">
+          <div>
+            <h1>Notifications</h1>
+            <p>Track every WhatsApp update sent to your customers.</p>
+          </div>
+          <div className="op-log-actions">
+            <Link to="/app/settings" className="op-button op-button-secondary">
+              <LogIcon name="settings" size={16} />
+              Settings
+            </Link>
+            <button
+              type="button"
+              className="op-button op-button-primary"
+              onClick={() => revalidator.revalidate()}
+              disabled={busy}
             >
-              <DocIcon size={22} />
-            </div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: "#14181f", letterSpacing: -0.5 }}>Notifications</div>
+              <LogIcon name="refresh" size={16} />
+              {busy ? "Refreshing…" : "Refresh"}
+            </button>
           </div>
+        </header>
 
-          <div style={{ ...cardBase, padding: "24px 26px" }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#14181f", marginBottom: 16 }}>Summary</div>
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-              <SummaryPill bg={COLORS.goldSoft} fg={COLORS.gold} icon={<ListIcon size={18} />} value={total} label="total" />
-              <SummaryPill bg="#E6F6EF" fg={COLORS.sent} icon={<CheckIcon size={18} />} value={sentCount} label="sent" />
-              <SummaryPill bg="#FBE7E8" fg={COLORS.failed} icon={<XIcon size={18} />} value={failedCount} label="failed" />
-              <SummaryPill bg="#E7EDFE" fg={COLORS.pending} icon={<ClockIcon size={18} />} value={pendingCount} label="pending" />
-            </div>
+        <div className="op-welcome op-log-intro">
+          <span className="op-log-intro-icon">
+            <LogIcon name="chat" size={27} />
+          </span>
+          <div>
+            <h2>Every order update, in one place.</h2>
+            <p>
+              Find a notification, check its status, and see what needs
+              attention.
+            </p>
           </div>
+          <span className="op-log-channel">WhatsApp</span>
+        </div>
 
-          <div style={{ ...cardBase, padding: "24px 26px" }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#14181f", marginBottom: 16 }}>Notification log</div>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <section
+          className="op-stats-grid"
+          aria-label="Notification totals, all time"
+        >
+          {[
+            {
+              key: "total",
+              label: "Total notifications",
+              description: "All notification attempts",
+              icon: "chart",
+            },
+            ...STATUSES,
+          ].map((item) => (
+            <article
+              className={`op-stat-card ${item.key !== "total" ? `op-stat-${item.key}` : ""}`}
+              key={item.key}
+            >
+              <div className="op-stat-top">
+                <h2>{item.label}</h2>
+                <span
+                  className={`op-icon op-icon-${item.key === "total" ? "neutral" : item.key}`}
+                >
+                  <LogIcon name={item.icon} size={18} />
+                </span>
+              </div>
+              <strong className="op-stat-value">
+                {unavailable ? "—" : summary[item.key].toLocaleString()}
+              </strong>
+              <p>{item.description}</p>
+            </article>
+          ))}
+        </section>
+
+        <section
+          className="op-log-panel"
+          aria-labelledby="op-log-title"
+          aria-busy={busy}
+        >
+          <div className="op-log-panel-top">
+            <div>
+              <h2 id="op-log-title">Notification log</h2>
+              <p>Latest attempts first · Summary totals are for all time</p>
+            </div>
+            <span className="op-period">
+              {unavailable
+                ? "Unavailable"
+                : `${total.toLocaleString()} ${filtered ? "matches" : "notifications"}`}
+            </span>
+          </div>
+          <div className="op-log-tools">
+            <nav
+              className="op-log-filters"
+              aria-label="Filter by notification status"
+            >
+              {[
+                { key: "all", label: "All", count: summary.total },
+                ...STATUSES.map((item) => ({
+                  ...item,
+                  count: summary[item.key],
+                })),
+              ].map((item) => (
+                <Link
+                  key={item.key}
+                  to={logUrl({ status: item.key, page: null })}
+                  className={`op-log-filter ${status === item.key ? "op-log-filter-active" : ""}`}
+                  aria-current={status === item.key ? "page" : undefined}
+                >
+                  {item.label}
+                  <span>{unavailable ? "—" : item.count.toLocaleString()}</span>
+                </Link>
+              ))}
+            </nav>
+            <Form
+              method="get"
+              className="op-log-search"
+              role="search"
+              key={query}
+            >
+              {[...searchParams]
+                .filter(
+                  ([key]) => !["q", "status", "page", "limit"].includes(key),
+                )
+                .map(([key, value], index) => (
+                  <input
+                    key={`${key}-${index}`}
+                    type="hidden"
+                    name={key}
+                    value={value}
+                  />
+                ))}
+              <input type="hidden" name="status" value={status} />
+              <input type="hidden" name="limit" value={limit} />
+              <label
+                htmlFor="op-log-search-input"
+                className="op-visually-hidden"
+              >
+                Search by order, customer or phone
+              </label>
+              <span className="op-log-search-field">
+                <LogIcon name="search" size={17} />
+                <input
+                  id="op-log-search-input"
+                  type="search"
+                  name="q"
+                  placeholder="Search order, customer or phone"
+                  defaultValue={query}
+                  maxLength={100}
+                />
+              </span>
+              <button
+                type="submit"
+                className="op-button op-button-secondary"
+                disabled={busy}
+              >
+                Search
+              </button>
+            </Form>
+          </div>
+          {filtered && (
+            <div className="op-log-applied">
+              <span>
+                {query
+                  ? `Results for “${query}”`
+                  : `${STATUSES.find((item) => item.key === status)?.label} notifications`}
+              </span>
+              <Link to={clearUrl} className="op-text-link">
+                Clear filters
+              </Link>
+            </div>
+          )}
+
+          {unavailable ? (
+            <div className="op-log-empty" role="alert">
+              <span className="op-log-empty-icon op-icon-failed">
+                <LogIcon name="alert" size={30} />
+              </span>
+              <h3>We couldn’t load your notifications</h3>
+              <p>
+                Refresh to try again. Your notification history will appear here
+                when it’s available.
+              </p>
+              <button
+                type="button"
+                className="op-button op-button-primary"
+                onClick={() => revalidator.revalidate()}
+                disabled={busy}
+              >
+                {busy ? "Retrying…" : "Try again"}
+              </button>
+            </div>
+          ) : items.length === 0 ? (
+            <div className="op-log-empty">
+              <span className="op-log-empty-icon op-icon-green">
+                <LogIcon name={filtered ? "search" : "chat"} size={30} />
+              </span>
+              <h3>
+                {filtered
+                  ? "No matching notifications"
+                  : "Your notification history starts here"}
+              </h3>
+              <p>
+                {filtered
+                  ? "Try another order number, customer name or phone number, or clear your filters."
+                  : "Once notifications are enabled, messages triggered by your selected order events will appear here."}
+              </p>
+              {filtered ? (
+                <Link to={clearUrl} className="op-button op-button-secondary">
+                  Clear filters
+                </Link>
+              ) : (
+                <Link
+                  to="/app/settings"
+                  className="op-button op-button-primary"
+                >
+                  Open notification settings
+                  <LogIcon name="arrow" size={16} />
+                </Link>
+              )}
+            </div>
+          ) : (
+            <div
+              className="op-log-table-wrap"
+              tabIndex={0}
+              role="region"
+              aria-label="Notification history. Scroll horizontally to see all columns."
+            >
+              <table className="op-log-table">
+                <caption className="op-visually-hidden">
+                  Notification attempts, newest first. Dates and times are in
+                  UTC.
+                </caption>
                 <thead>
                   <tr>
-                    <th style={th}>Created</th>
-                    <th style={th}>Order</th>
-                    <th style={th}>Customer</th>
-                    <th style={th}>Phone</th>
-                    <th style={th}>Status</th>
-                    <th style={th}>Detail</th>
+                    <th scope="col">
+                      Created <span>(UTC)</span>
+                    </th>
+                    <th scope="col">Order</th>
+                    <th scope="col">Customer</th>
+                    <th scope="col">Update</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Details</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {items.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} style={{ padding: "48px 16px" }}>
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
-                          <div style={{ position: "relative", width: 80, height: 60 }}>
-                            <span style={{ position: "absolute", left: -6, top: 4 }}>
-                              <SparkleIcon size={12} />
-                            </span>
-                            <span style={{ position: "absolute", right: -6, top: 4 }}>
-                              <SparkleIcon size={12} />
-                            </span>
-                            <div
-                              style={{
-                                position: "absolute",
-                                top: 0,
-                                left: "50%",
-                                transform: "translateX(-50%)",
-                                width: 34,
-                                height: 34,
-                                borderRadius: "50%",
-                                background: COLORS.goldSoft,
-                                border: `1px solid ${COLORS.goldBorder}`,
-                                color: COLORS.gold,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                              }}
-                            >
-                              <BellIcon size={16} />
-                            </div>
-                            <div style={{ position: "absolute", bottom: 0, left: "50%", transform: "translateX(-50%)" }}>
-                              <EnvelopeIcon size={48} />
-                            </div>
-                          </div>
-                          <div style={{ fontSize: 15, fontWeight: 700, color: "#14181f" }}>
-                            No notifications recorded yet —
-                          </div>
-                          <div style={{ fontSize: 13, color: "#8a8f98" }}>
-                            they&apos;ll show up here once an order comes in.
-                          </div>
-                        </div>
+                  {items.map((item) => (
+                    <tr key={item.id}>
+                      <td>
+                        <time dateTime={new Date(item.createdAt).toISOString()}>
+                          {new Date(item.createdAt).toLocaleDateString(
+                            "en-GB",
+                            {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                              timeZone: "UTC",
+                            },
+                          )}
+                          <span className="op-log-subtext">
+                            {new Date(item.createdAt).toLocaleTimeString(
+                              "en-GB",
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                timeZone: "UTC",
+                              },
+                            )}
+                          </span>
+                        </time>
+                      </td>
+                      <td>
+                        <strong className="op-log-order">
+                          {item.orderNumber || item.shopifyOrderId}
+                        </strong>
+                      </td>
+                      <td>
+                        <span className="op-log-customer">
+                          {item.customerName || "Customer"}
+                        </span>
+                        <span className="op-log-subtext">
+                          {item.customerPhone || "No phone recorded"}
+                        </span>
+                      </td>
+                      <td>{formatUpdate(item.notificationType)}</td>
+                      <td>
+                        <StatusBadge status={item.status} />
+                      </td>
+                      <td>
+                        {item.errorMessage || item.metaMessageId ? (
+                          <details
+                            className={`op-log-details ${item.errorMessage ? "op-log-details-error" : ""}`}
+                          >
+                            <summary>
+                              {item.errorMessage ? "View error" : "Message ID"}
+                            </summary>
+                            <pre>{item.errorMessage || item.metaMessageId}</pre>
+                          </details>
+                        ) : (
+                          <span className="op-log-subtext">
+                            {item.status === "pending"
+                              ? "Awaiting send"
+                              : "No additional details"}
+                          </span>
+                        )}
                       </td>
                     </tr>
-                  ) : (
-                    items.map((r) => {
-                      const detail = r.metaMessageId
-                        ? r.metaMessageId
-                        : r.errorMessage
-                          ? r.errorMessage
-                          : "—";
-                      return (
-                        <tr key={r.id} style={{ borderTop: "1px solid #f1ece0" }}>
-                          <td style={td}>{new Date(r.createdAt).toLocaleString()}</td>
-                          <td style={td}>{r.orderNumber || r.shopifyOrderId}</td>
-                          <td style={td}>{r.customerName || "—"}</td>
-                          <td style={td}>{r.customerPhone || "—"}</td>
-                          <td style={td}>
-                            <StatusBadge status={r.status} />
-                          </td>
-                          <td style={{ ...td, whiteSpace: "pre-wrap", wordBreak: "break-word", color: "#6d7175" }}>
-                            <DetailCell text={detail} />
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>
-            <div
-              style={{
-                marginTop: 16,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                flexWrap: "wrap",
-                gap: 12,
-              }}
-            >
-              <div style={{ fontSize: 13, color: "#8a8f98" }}>
-                Showing {items.length} of {total} notifications (page {page} of {totalPages})
-              </div>
-              {totalPages > 1 && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          )}
+
+          {!unavailable && (
+            <footer className="op-log-pagination">
+              <p>
+                {total
+                  ? `Showing ${rangeStart.toLocaleString()}–${rangeEnd.toLocaleString()} of ${total.toLocaleString()}`
+                  : "Showing 0 notifications"}
+              </p>
+              <div>
+                <span className="op-log-page-count">
+                  Page {page} of {pages}
+                </span>
+                {page > 1 ? (
+                  <Link
+                    to={logUrl({ page: page - 1 })}
+                    className="op-button op-button-secondary"
+                    aria-label="Previous page"
+                  >
+                    <LogIcon name="back" size={15} />
+                    Previous
+                  </Link>
+                ) : (
                   <button
                     type="button"
-                    onClick={() => goToPage(page - 1)}
-                    disabled={page <= 1}
-                    style={{
-                      padding: "6px 14px",
-                      borderRadius: 8,
-                      border: `1px solid ${COLORS.goldBorder}`,
-                      background: page <= 1 ? "#f6f6f7" : "#fff",
-                      color: page <= 1 ? "#a7acb1" : "#14181f",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: page <= 1 ? "default" : "pointer",
-                    }}
+                    className="op-button op-button-secondary"
+                    disabled
                   >
+                    <LogIcon name="back" size={15} />
                     Previous
                   </button>
-                  <span style={{ fontSize: 13, color: "#6d7175" }}>
-                    Page {page} of {totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => goToPage(page + 1)}
-                    disabled={page >= totalPages}
-                    style={{
-                      padding: "6px 14px",
-                      borderRadius: 8,
-                      border: `1px solid ${COLORS.goldBorder}`,
-                      background: page >= totalPages ? "#f6f6f7" : "#fff",
-                      color: page >= totalPages ? "#a7acb1" : "#14181f",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: page >= totalPages ? "default" : "pointer",
-                    }}
+                )}
+                {page < pages ? (
+                  <Link
+                    to={logUrl({ page: page + 1 })}
+                    className="op-button op-button-secondary"
+                    aria-label="Next page"
                   >
                     Next
+                    <LogIcon name="arrow" size={15} />
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    className="op-button op-button-secondary"
+                    disabled
+                  >
+                    Next
+                    <LogIcon name="arrow" size={15} />
                   </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </s-stack>
+                )}
+              </div>
+            </footer>
+          )}
+        </section>
+        <p className="op-log-footnote">
+          <LogIcon name="clock" size={14} />
+          New activity appears when you refresh. “Sent” means the message was
+          accepted by WhatsApp.
+        </p>
       </div>
     </s-page>
   );
 }
 
-export const headers = (headersArgs) => {
-  return boundary.headers(headersArgs);
-};
+/* eslint-enable jsx-a11y/no-noninteractive-tabindex */
+
+export const headers = (headersArgs) => boundary.headers(headersArgs);

@@ -1,368 +1,456 @@
-  import { Link, useLoaderData } from "react-router";
-  import { boundary } from "@shopify/shopify-app-react-router/server";
-  import { authenticate } from "../shopify.server";
-  import { requireActivePlan } from "../services/billing.server";
-  import db from "../db.server";
+﻿import { Link, useLoaderData } from "react-router";
+import { boundary } from "@shopify/shopify-app-react-router/server";
+import { authenticate } from "../shopify.server";
+import { requireActivePlan } from "../services/billing.server";
+import db from "../db.server";
 
-  export const loader = async ({ request }) => {
-    const { admin, billing, session } = await authenticate.admin(request);
-    const shop = session?.shop;
-    await requireActivePlan({ admin, billing, request, shop });
+export const loader = async ({ request }) => {
+  const { admin, billing, session } = await authenticate.admin(request);
+  const shop = session?.shop;
+  await requireActivePlan({ admin, billing, request, shop });
 
-    const stats = { totalNotifications: 0, sent: 0, failed: 0, pending: 0 };
-    const settings = {};
-    try {
-      if (shop && db && db.notificationLog && typeof db.notificationLog.count === "function") {
-        const where = { shop };
-        stats.totalNotifications = await db.notificationLog.count({ where });
-        stats.sent = await db.notificationLog.count({ where: { ...where, status: "sent" } });
-        stats.failed = await db.notificationLog.count({ where: { ...where, status: "failed" } });
-        stats.pending = await db.notificationLog.count({ where: { ...where, status: "pending" } });
-
-        const rows = await db.appSetting.findMany({ where: { shop, key: { in: ["ENABLED", "META_ACCESS_TOKEN", "META_PHONE_NUMBER_ID"] } } });
-        for (const r of rows) settings[r.key] = r.value;
-      }
-    } catch (err) {
-      console.error("Failed to load notification analytics", err);
+  const stats = { totalNotifications: 0, sent: 0, failed: 0, pending: 0 };
+  const settings = {};
+  let analyticsUnavailable = false;
+  try {
+    if (
+      shop &&
+      db &&
+      db.notificationLog &&
+      typeof db.notificationLog.count === "function"
+    ) {
+      const where = { shop };
+      stats.totalNotifications = await db.notificationLog.count({ where });
+      stats.sent = await db.notificationLog.count({
+        where: { ...where, status: "sent" },
+      });
+      stats.failed = await db.notificationLog.count({
+        where: { ...where, status: "failed" },
+      });
+      stats.pending = await db.notificationLog.count({
+        where: { ...where, status: "pending" },
+      });
+      const rows = await db.appSetting.findMany({
+        where: { shop, key: { in: ["ENABLED", "ENABLED_OPT_IN_CONFIRMED"] } },
+      });
+      for (const row of rows) settings[row.key] = row.value;
+    } else {
+      analyticsUnavailable = true;
     }
-
-    return { stats, settings };
-  };
-
-  const COLORS = {
-    sent: "#1FA97B",
-    failed: "#E5484D",
-    pending: "#2B66FF",
-    gold: "#B4791E",
-    goldSoft: "#FBF0DC",
-    goldBorder: "#EED9AE",
-  };
-
-  const pageBg = { background: "linear-gradient(180deg, #FDFAF4 0%, #F8F1E4 100%)", minHeight: "100%", padding: "4px 0" };
-
-  const cardBase = {
-    borderRadius: 16,
-    background: "#fff",
-    boxShadow: "0 1px 2px rgba(16,24,40,0.04), 0 1px 12px rgba(16,24,40,0.05)",
-    border: "1px solid rgba(16,24,40,0.04)",
-    position: "relative",
-    overflow: "hidden",
-  };
-
-  const statCard = (accent) => ({
-    ...cardBase,
-    flex: 1,
-    minWidth: 200,
-    padding: "20px 22px",
-  });
-  const accentBar = (color) => ({
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 4,
-    background: color,
-  });
-  const iconBadge = (bg, fg) => ({
-    position: "absolute",
-    top: 18,
-    right: 18,
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    background: bg,
-    color: fg,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  });
-  const statLabel = { fontSize: 11, fontWeight: 700, color: "#B4791E", textTransform: "uppercase", letterSpacing: 0.6 };
-  const statValue = { fontSize: 34, fontWeight: 800, color: "#14181f", marginTop: 8, letterSpacing: -0.5 };
-
-  function Icon({ children, size = 20 }) {
-    return (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        {children}
-      </svg>
-    );
+  } catch (err) {
+    analyticsUnavailable = true;
+    console.error("Failed to load notification analytics", err);
   }
-  // TEMPORARILY UNUSED — belongs to the "Set up WhatsApp" banner below, which is
-  // commented out while the app is pending Shopify review. Re-enable together.
-  const BellIcon = (p) => (
-    <Icon {...p}>
-      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-    </Icon>
-  );
-  const ChartIcon = (p) => (
-    <Icon {...p}>
-      <path d="M3 3v18h18" />
-      <path d="M18 17V9" />
-      <path d="M13 17V5" />
-      <path d="M8 17v-3" />
-    </Icon>
-  );
-  const ShieldIcon = (p) => (
-    <Icon {...p}>
-      <path d="M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5l-8-3Z" />
-    </Icon>
-  );
-  const DocIcon = (p) => (
-    <Icon {...p}>
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
-      <path d="M14 2v6h6" />
-      <path d="M9 13h6M9 17h6" />
-    </Icon>
-  );
-  const GearIcon = (p) => (
-    <Icon {...p}>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.6 1Z" />
-    </Icon>
-  );
-  const ArrowIcon = (p) => (
-    <Icon {...p}>
-      <path d="M5 12h14" />
-      <path d="M13 6l6 6-6 6" />
-    </Icon>
-  );
-  // TEMPORARILY UNUSED — see BellIcon comment above.
-  const WhatsAppIcon = ({ size = 24 }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.39 1.26 4.81L2 22l5.42-1.36a9.86 9.86 0 0 0 4.62 1.14h.01c5.46 0 9.9-4.45 9.9-9.91C21.95 6.45 17.5 2 12.04 2Zm5.79 14.02c-.24.68-1.4 1.3-1.93 1.34-.53.04-1.02.24-3.42-.72-2.9-1.16-4.75-4.1-4.9-4.3-.14-.2-1.18-1.57-1.18-3 0-1.42.75-2.12 1.01-2.41.26-.29.58-.36.77-.36.19 0 .39 0 .55.01.19.01.42-.07.66.5.24.58.83 2 .9 2.15.07.15.12.32.02.51-.1.19-.15.31-.3.48-.15.17-.31.38-.44.51-.15.15-.31.31-.13.6.18.29.79 1.31 1.7 2.12 1.17 1.05 2.16 1.37 2.45 1.53.29.15.46.13.63-.08.17-.2.72-.84.91-1.13.19-.29.38-.24.63-.14.26.1 1.66.78 1.94.92.29.15.48.22.55.34.07.13.07.71-.17 1.39Z" />
+  return { stats, settings, analyticsUnavailable };
+};
+
+const DELIVERY_STATES = [
+  {
+    key: "sent",
+    label: "Sent",
+    description: "Sent to WhatsApp",
+    color: "#16865f",
+    icon: "check",
+  },
+  {
+    key: "failed",
+    label: "Failed",
+    description: "Needs your attention",
+    color: "#d04747",
+    icon: "alert",
+  },
+  {
+    key: "pending",
+    label: "Pending",
+    description: "Waiting to be sent",
+    color: "#5475d6",
+    icon: "clock",
+  },
+];
+
+// These private presentation helpers only receive props from this route.
+/* eslint-disable react/prop-types */
+function Icon({ name, size = 20 }) {
+  const paths = {
+    chat: (
+      <>
+        <path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 9 9 0 0 1-4-.9L3 21l1.9-5.5a9 9 0 0 1-.9-4 8.5 8.5 0 0 1 17 0Z" />
+        <path d="M8 10h8M8 14h5" />
+      </>
+    ),
+    chart: (
+      <>
+        <path d="M4 4v16h16M9 16v-5M14 16V7M19 16v-3" />
+      </>
+    ),
+    check: <path d="m5 12 4 4L19 6" />,
+    alert: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v6M12 17h.01" />
+      </>
+    ),
+    clock: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </>
+    ),
+    arrow: <path d="M5 12h14m-6-6 6 6-6 6" />,
+    document: (
+      <>
+        <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-6-6Zm0 0v6h6M8 13h8M8 17h5" />
+      </>
+    ),
+    settings: (
+      <>
+        <path d="M4 7h16M4 17h16" />
+        <circle cx="9" cy="7" r="3" fill="currentColor" stroke="none" />
+        <circle cx="15" cy="17" r="3" fill="currentColor" stroke="none" />
+      </>
+    ),
+    bolt: <path d="m13 2-9 12h7l-1 8 10-12h-7l1-8Z" />,
+  };
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {paths[name] || paths.chat}
     </svg>
   );
+}
 
-  function DonutChart({ sent, failed, pending }) {
-    const total = sent + failed + pending;
-    const size = 168;
-    const stroke = 22;
-    const radius = (size - stroke) / 2;
-    const circumference = 2 * Math.PI * radius;
-
-    const segments = total === 0
-      ? [{ key: "empty", value: 1, color: "#F1E8D6" }]
-      : [
-          { key: "sent", value: sent, color: COLORS.sent },
-          { key: "failed", value: failed, color: COLORS.failed },
-          { key: "pending", value: pending, color: COLORS.pending },
-        ];
-
-    let offset = 0;
-    const arcs = segments.map((seg) => {
-      const fraction = seg.value / (total || 1);
-      const dash = fraction * circumference;
-      const arc = (
+function DonutChart({ analytics, unavailable }) {
+  const total = DELIVERY_STATES.reduce(
+    (sum, state) => sum + analytics[state.key],
+    0,
+  );
+  const radius = 63;
+  const circumference = 2 * Math.PI * radius;
+  let offset = 0;
+  return (
+    <div
+      className="op-donut"
+      role="img"
+      aria-label={
+        unavailable
+          ? "Delivery data unavailable"
+          : `${total.toLocaleString()} notifications: ${analytics.sent} sent, ${analytics.failed} failed, ${analytics.pending} pending`
+      }
+    >
+      <svg viewBox="0 0 160 160" aria-hidden="true">
         <circle
-          key={seg.key}
-          cx={size / 2}
-          cy={size / 2}
+          cx="80"
+          cy="80"
           r={radius}
           fill="none"
-          stroke={seg.color}
-          strokeWidth={stroke}
-          strokeDasharray={`${dash} ${circumference - dash}`}
-          strokeDashoffset={-offset}
-          strokeLinecap={segments.length > 1 ? "butt" : "round"}
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          stroke="#edf1ef"
+          strokeWidth="15"
         />
-      );
-      offset += dash;
-      return arc;
-    });
+        {!unavailable &&
+          total > 0 &&
+          DELIVERY_STATES.map((state) => {
+            const dash = (analytics[state.key] / total) * circumference;
+            const segment = (
+              <circle
+                key={state.key}
+                cx="80"
+                cy="80"
+                r={radius}
+                fill="none"
+                stroke={state.color}
+                strokeWidth="15"
+                strokeDasharray={`${dash} ${circumference - dash}`}
+                strokeDashoffset={-offset}
+                transform="rotate(-90 80 80)"
+              />
+            );
+            offset += dash;
+            return segment;
+          })}
+      </svg>
+      <div className="op-donut-label">
+        <strong>{unavailable ? "—" : total.toLocaleString()}</strong>
+        <span>Notifications</span>
+      </div>
+    </div>
+  );
+}
 
-    return (
-      <div style={{ position: "relative", width: size, height: size }}>
-        <svg width={size} height={size}>
-          {arcs}
-        </svg>
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div style={{ fontSize: 30, fontWeight: 800, color: "#14181f", letterSpacing: -0.5 }}>{total}</div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "#8a8f98", textTransform: "uppercase", letterSpacing: 0.4 }}>
-            Total
+function QuickLink({ to, icon, title, children }) {
+  return (
+    <Link to={to} className="op-quick-link">
+      <span className="op-icon op-icon-neutral">
+        <Icon name={icon} />
+      </span>
+      <span className="op-quick-copy">
+        <strong>{title}</strong>
+        <span>{children}</span>
+      </span>
+      <Icon name="arrow" size={18} />
+    </Link>
+  );
+}
+
+/* eslint-enable react/prop-types */
+
+export default function Index() {
+  const { stats, settings, analyticsUnavailable = false } = useLoaderData();
+  const analytics = stats || {
+    totalNotifications: 0,
+    sent: 0,
+    failed: 0,
+    pending: 0,
+  };
+  const isEnabled =
+    settings?.ENABLED === "true" &&
+    settings?.ENABLED_OPT_IN_CONFIRMED === "true";
+  const hasNotifications = analytics.totalNotifications > 0;
+  const status = analyticsUnavailable
+    ? "Unavailable"
+    : isEnabled
+      ? "Enabled"
+      : "Disabled";
+  const successRate =
+    analytics.totalNotifications > 0
+      ? Math.round((analytics.sent / analytics.totalNotifications) * 100)
+      : 0;
+
+  return (
+    <s-page heading="OrderPing">
+      <div className="op-dashboard">
+        <header className="op-page-header">
+          <div>
+            <h1>Overview</h1>
+            <p>Your WhatsApp notifications, at a glance.</p>
           </div>
-        </div>
-      </div>
-    );
-  }
+          <Link
+            to="/app/notifications"
+            className="op-button op-button-secondary"
+          >
+            <Icon name="document" size={16} />
+            View notification log
+          </Link>
+        </header>
 
-  function LegendRow({ color, label, value, total }) {
-    const pct = total > 0 ? Math.round((value / total) * 100) : 0;
-    return (
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0" }}>
-        <span style={{ width: 10, height: 10, borderRadius: 3, background: color, flexShrink: 0 }} />
-        <span style={{ fontSize: 14, color: "#4a4f57", flex: 1 }}>{label}</span>
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#14181f" }}>{value}</span>
-        <span style={{ fontSize: 12, color: "#8a8f98", width: 36, textAlign: "right" }}>{pct}%</span>
-      </div>
-    );
-  }
-
-  const quickLinkCard = {
-    ...cardBase,
-    flex: 1,
-    minWidth: 220,
-    padding: "18px 20px",
-    textDecoration: "none",
-    display: "flex",
-    alignItems: "center",
-    gap: 14,
-  };
-  const quickLinkIcon = (bg, fg) => ({
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    background: bg,
-    color: fg,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  });
-  const quickLinkArrow = {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    background: COLORS.goldSoft,
-    color: COLORS.gold,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  };
-
-  export default function Index() {
-    const { stats, settings } = useLoaderData();
-    const analytics = stats || { totalNotifications: 0, sent: 0, failed: 0, pending: 0 };
-    // TEMPORARILY UNUSED — see the commented-out banner below.
-    const isConfigured = !!(settings?.META_ACCESS_TOKEN && settings?.META_PHONE_NUMBER_ID);
-    const isEnabled = settings?.ENABLED === "true" && settings?.ENABLED_OPT_IN_CONFIRMED === "true";
-
-    return (
-      <s-page heading="OrderPing">
-        <div style={pageBg}>
-          <s-stack direction="block" gap="loose">
-            {/*
-              TEMPORARILY DISABLED while the app is pending Shopify review — WhatsApp
-              credentials are currently managed via the server's .env fallback instead
-              of per-merchant Settings entry, so this banner would send reviewers to a
-              Settings page with nothing to fill in. Re-enable once approved.
-
-            {!isConfigured && (
-              <div
-                style={{
-                  ...cardBase,
-                  border: `1px solid ${COLORS.goldBorder}`,
-                  background: `linear-gradient(90deg, ${COLORS.goldSoft} 0%, #FEFCF7 100%)`,
-                  padding: "22px 26px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 18,
-                }}
-              >
-                <div style={{ ...quickLinkIcon(COLORS.goldSoft, COLORS.gold), border: `1px solid ${COLORS.goldBorder}` }}>
-                  <BellIcon size={20} />
-                </div>
-                <div style={{ flex: 1, minWidth: 220 }}>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: "#7A5310" }}>Set up WhatsApp to start sending</div>
-                  <div style={{ fontSize: 13, color: "#8a7452", marginTop: 4 }}>
-                    Add your Meta access token and phone number ID in Settings before order notifications can go out.
-                  </div>
-                  <Link to="/app/settings" style={{ fontSize: 13, fontWeight: 700, color: COLORS.gold, textDecoration: "underline", display: "inline-flex", alignItems: "center", gap: 4, marginTop: 8 }}>
-                    Go to Settings <ArrowIcon size={14} />
-                  </Link>
-                </div>
-                <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#7A5310", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <WhatsAppIcon size={26} />
-                </div>
+        <section className="op-welcome" aria-labelledby="op-welcome-title">
+          <div className="op-welcome-copy">
+            <div className="op-eyebrow">
+              <Icon name="chat" size={16} />
+              WHATSAPP ORDER UPDATES
+            </div>
+            <h2 id="op-welcome-title">Keep customers in the loop.</h2>
+            <p>
+              Send timely order updates on WhatsApp.
+              <br />A little reassurance, from checkout to delivery.
+            </p>
+            <Link to="/app/settings" className="op-button op-button-primary">
+              Manage notifications
+              <Icon name="arrow" size={16} />
+            </Link>
+          </div>
+          <div
+            className="op-message-preview"
+            aria-label="Example WhatsApp notification"
+          >
+            <div className="op-message-heading">
+              <span className="op-icon op-icon-green">
+                <Icon name="chat" size={20} />
+              </span>
+              <div>
+                <strong>Order update</strong>
+                <span>WhatsApp notification</span>
               </div>
-            )}
-            */}
+              <span className="op-example-label">Example</span>
+            </div>
+            <div className="op-message-bubble">
+              <strong>Your order is on its way 🎉</strong>
+              <p>
+                We’ll keep you updated on its journey.
+                <br />
+                Thanks for shopping with us!
+              </p>
+              <span className="op-message-checks">
+                <Icon name="check" size={12} />
+                <Icon name="check" size={12} />
+              </span>
+            </div>
+          </div>
+        </section>
 
-            <s-stack direction="inline" gap="base">
-              <div style={statCard()}>
-                <div style={accentBar(COLORS.sent)} />
-                <div style={iconBadge("#E6F6EF", COLORS.sent)}>
-                  <ChartIcon size={20} />
-                </div>
-                <div style={statLabel}>Total notifications</div>
-                <div style={statValue}>{analytics.totalNotifications}</div>
-              </div>
-              <div style={statCard()}>
-                <div style={accentBar(isEnabled ? COLORS.sent : COLORS.gold)} />
-                <div style={iconBadge(COLORS.goldSoft, COLORS.gold)}>
-                  <ShieldIcon size={20} />
-                </div>
-                <div style={statLabel}>Status</div>
-                <div style={{ marginTop: 10 }}>
-                  <s-badge tone={isEnabled ? "success" : "neutral"} size="large">
-                    {isEnabled ? "● Enabled" : "○ Disabled"}
-                  </s-badge>
-                </div>
-              </div>
-            </s-stack>
+        {analyticsUnavailable && (
+          <div className="op-load-alert" role="alert">
+            <Icon name="alert" size={18} />
+            <span>
+              We couldn’t load your dashboard data. Refresh the page to try
+              again.
+            </span>
+          </div>
+        )}
 
-            <div
-              style={{
-                ...cardBase,
-                borderLeft: `4px solid ${COLORS.gold}`,
-                padding: "26px 28px",
-              }}
+        <section
+          className="op-stats-grid"
+          aria-label="Notification totals, all time"
+        >
+          <article className="op-stat-card">
+            <div className="op-stat-top">
+              <h2>Total notifications</h2>
+              <span className="op-icon op-icon-neutral">
+                <Icon name="chart" size={18} />
+              </span>
+            </div>
+            <strong className="op-stat-value">
+              {analyticsUnavailable
+                ? "—"
+                : analytics.totalNotifications.toLocaleString()}
+            </strong>
+            <p>All notification attempts</p>
+          </article>
+          {DELIVERY_STATES.map((state) => (
+            <article
+              className={`op-stat-card op-stat-${state.key}`}
+              key={state.key}
             >
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#14181f", marginBottom: 18 }}>
-                Delivery breakdown
+              <div className="op-stat-top">
+                <h2>{state.label}</h2>
+                <span className={`op-icon op-icon-${state.key}`}>
+                  <Icon name={state.icon} size={18} />
+                </span>
               </div>
-              <div style={{ display: "flex", gap: 32, alignItems: "center", flexWrap: "wrap" }}>
-                <DonutChart sent={analytics.sent} failed={analytics.failed} pending={analytics.pending} />
-                <div style={{ flex: 1, minWidth: 220 }}>
-                  <LegendRow color={COLORS.sent} label="Sent" value={analytics.sent} total={analytics.totalNotifications} />
-                  <LegendRow color={COLORS.failed} label="Failed" value={analytics.failed} total={analytics.totalNotifications} />
-                  <LegendRow color={COLORS.pending} label="Pending" value={analytics.pending} total={analytics.totalNotifications} />
+              <strong className="op-stat-value">
+                {analyticsUnavailable
+                  ? "—"
+                  : analytics[state.key].toLocaleString()}
+              </strong>
+              <p>{state.description}</p>
+            </article>
+          ))}
+        </section>
+
+        <div className="op-detail-grid">
+          <section className="op-panel" aria-labelledby="op-delivery-title">
+            <div className="op-panel-heading">
+              <div>
+                <h2 id="op-delivery-title">Delivery overview</h2>
+                <p>How your notifications are performing</p>
+              </div>
+              <span className="op-period">All time</span>
+            </div>
+            <div className="op-delivery-content">
+              <DonutChart
+                analytics={analytics}
+                unavailable={analyticsUnavailable}
+              />
+              <div className="op-legend">
+                {DELIVERY_STATES.map((state) => (
+                  <div className="op-legend-row" key={state.key}>
+                    <span className={`op-dot op-dot-${state.key}`} />
+                    <span>{state.label}</span>
+                    <strong>
+                      {analyticsUnavailable
+                        ? "—"
+                        : analytics[state.key].toLocaleString()}
+                    </strong>
+                    <span className="op-percentage">
+                      {analyticsUnavailable
+                        ? "—"
+                        : `${analytics.totalNotifications > 0 ? Math.round((analytics[state.key] / analytics.totalNotifications) * 100) : 0}%`}
+                    </span>
+                  </div>
+                ))}
+                <div className="op-delivery-note">
+                  {analyticsUnavailable
+                    ? "Data temporarily unavailable"
+                    : hasNotifications
+                      ? `${successRate}% of all attempts sent successfully`
+                      : "Your delivery stats will appear here."}
                 </div>
               </div>
             </div>
+          </section>
 
-            <s-stack direction="inline" gap="base">
-              <Link to="/app/notifications" style={quickLinkCard}>
-                <div style={quickLinkIcon("#E6F6EF", COLORS.sent)}>
-                  <DocIcon size={20} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#14181f" }}>Notification log</div>
-                  <div style={{ fontSize: 12, color: "#8a8f98", marginTop: 2 }}>View every send attempt and status</div>
-                </div>
-                <div style={quickLinkArrow}>
-                  <ArrowIcon size={16} />
-                </div>
-              </Link>
-              <Link to="/app/settings" style={quickLinkCard}>
-                <div style={quickLinkIcon(COLORS.goldSoft, COLORS.gold)}>
-                  <GearIcon size={20} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#14181f" }}>WhatsApp settings</div>
-                  <div style={{ fontSize: 12, color: "#8a8f98", marginTop: 2 }}>Credentials, template, and behavior</div>
-                </div>
-                <div style={quickLinkArrow}>
-                  <ArrowIcon size={16} />
-                </div>
-              </Link>
-            </s-stack>
-          </s-stack>
+          <section
+            className="op-panel op-automation"
+            aria-labelledby="op-automation-title"
+          >
+            <div className="op-panel-heading">
+              <h2 id="op-automation-title">Notification status</h2>
+              <span
+                className={`op-status ${analyticsUnavailable ? "op-status-unknown" : isEnabled ? "op-status-enabled" : "op-status-disabled"}`}
+              >
+                <span />
+                {status}
+              </span>
+            </div>
+            <span
+              className={`op-automation-icon op-icon ${isEnabled && !analyticsUnavailable ? "op-icon-green" : "op-icon-neutral"}`}
+            >
+              <Icon name="bolt" size={23} />
+            </span>
+            <h3>
+              {analyticsUnavailable
+                ? "Status temporarily unavailable"
+                : isEnabled
+                  ? "Order updates are enabled"
+                  : "Ready when you are"}
+            </h3>
+            <p>
+              {analyticsUnavailable
+                ? "Refresh the page to check your notification settings."
+                : isEnabled
+                  ? "Automatic WhatsApp updates are enabled for your selected order events."
+                  : "Turn on WhatsApp notifications in Settings to keep customers updated about their orders."}
+            </p>
+            <Link to="/app/settings" className="op-text-link">
+              {isEnabled ? "Manage settings" : "Open settings"}
+              <Icon name="arrow" size={16} />
+            </Link>
+          </section>
         </div>
-      </s-page>
-    );
-  }
 
-  export const headers = (headersArgs) => {
-    return boundary.headers(headersArgs);
-  };
+        {!hasNotifications && !analyticsUnavailable && (
+          <div className="op-first-notification">
+            <span className="op-icon op-icon-green">
+              <Icon name="chat" size={20} />
+            </span>
+            <div>
+              <strong>Your first notification starts here</strong>
+              <p>
+                {isEnabled
+                  ? "Notifications will appear here when a selected order event triggers a message."
+                  : "Enable notifications and choose the order updates you want to send in Settings."}
+              </p>
+            </div>
+          </div>
+        )}
+
+        <nav className="op-quick-links" aria-label="Dashboard shortcuts">
+          <QuickLink
+            to="/app/notifications"
+            icon="document"
+            title="Notification log"
+          >
+            Track send attempts and investigate errors.
+          </QuickLink>
+          <QuickLink
+            to="/app/settings"
+            icon="settings"
+            title="WhatsApp settings"
+          >
+            Choose your messaging mode and order updates.
+          </QuickLink>
+        </nav>
+      </div>
+    </s-page>
+  );
+}
+
+export const headers = (headersArgs) => boundary.headers(headersArgs);

@@ -18,6 +18,7 @@ database.sqlite
 
 # Local debug/one-off scripts (may contain shop domains, order IDs, etc.)
 tmp-*.js
+.debug/
 
 
 
