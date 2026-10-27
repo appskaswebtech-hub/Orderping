@@ -3,6 +3,7 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
 import '../style/design.css';
+import SupportChatWidget from "../components/SupportChatWidget.jsx";
 
 // No billing gate here — it's per-page (see requireActivePlan in
 // services/billing.server.js) so the Billing page itself doesn't redirect to
@@ -26,6 +27,7 @@ export default function App() {
         <s-link href="/app/billing">Billing</s-link>
       </s-app-nav>
       <Outlet />
+      <SupportChatWidget />
     </AppProvider>
   );
 }

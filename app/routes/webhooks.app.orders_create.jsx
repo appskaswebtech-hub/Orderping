@@ -36,6 +36,90 @@ async function getFirstLineItemImageUrl(shop, order) {
   }
 }
 
+// WhatsApp carousel templates allow 2-10 cards. We dedupe by product_id so a
+// repeat purchase in the same order (e.g. qty 2 of the same item split across
+// line items) doesn't waste a card slot, then cap at the Meta-enforced max.
+const CAROUSEL_MAX_CARDS = 10;
+
+async function getLineItemImagesForOrder(shop, order) {
+  const items = order?.line_items || [];
+  const seenProductIds = new Set();
+  const deduped = [];
+  for (const li of items) {
+    const productId = li?.product_id;
+    const key = productId || `title:${li?.title || li?.name}`;
+    if (seenProductIds.has(key)) continue;
+    seenProductIds.add(key);
+    deduped.push(li);
+    if (deduped.length >= CAROUSEL_MAX_CARDS) break;
+  }
+
+  if (deduped.length === 0) return [];
+
+  const session = await db.session.findFirst({ where: { shop } });
+  const FALLBACK_IMAGE_URL = "https://cdn.shopify.com/s/files/1/0805/2437/8361/files/gift_card.png?v=1774602792";
+
+  return Promise.all(
+    deduped.map(async (li) => {
+      let imageUrl = null;
+      try {
+        if (li?.product_id && session?.accessToken) {
+          const res = await fetch(`https://${shop}/admin/api/2024-10/products/${li.product_id}.json?fields=image`, {
+            headers: { "X-Shopify-Access-Token": session.accessToken },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            imageUrl = data?.product?.image?.src || null;
+          }
+        }
+      } catch (err) {
+        console.error("[order-ping] failed to fetch line item product image", err);
+      }
+      return {
+        imageUrl: imageUrl || FALLBACK_IMAGE_URL,
+        title: li?.title || li?.name || "Item",
+        quantity: String(li?.quantity || 1),
+      };
+    }),
+  );
+}
+
+// "order_confirmation_slider" (approved as a MARKETING-category Carousel
+// template — Meta doesn't support carousels under UTILITY) shows one
+// swipeable card per product, each with its own image. Every card in the
+// approved template has a static QUICK_REPLY button ("View item"); WhatsApp
+// still requires a payload parameter per button at send time even though the
+// button text itself is static.
+function buildCarouselComponents({ customerName, orderNumber, shopifyOrderId, order, lineItemImages }) {
+  return [
+    {
+      type: "body",
+      parameters: [
+        { type: "text", text: customerName || "Customer" },
+        { type: "text", text: orderNumber || String(shopifyOrderId) },
+        { type: "text", text: buildItemsSummary(order) },
+        { type: "text", text: buildTotal(order) },
+      ],
+    },
+    {
+      type: "carousel",
+      cards: lineItemImages.map((item, index) => ({
+        card_index: index,
+        components: [
+          { type: "header", parameters: [{ type: "image", image: { link: item.imageUrl } }] },
+          { type: "body", parameters: [{ type: "text", text: item.title }, { type: "text", text: item.quantity }] },
+          {
+            type: "button",
+            sub_type: "quick_reply",
+            index: "0",
+            parameters: [{ type: "payload", payload: `view_item_${index}` }],
+          },
+        ],
+      })),
+    },
+  ];
+}
+
 function buildOrderStatusUrlSuffix(order, shop) {
   const url = order?.order_status_url;
   if (!url) return null;
@@ -46,7 +130,7 @@ function buildOrderStatusUrlSuffix(order, shop) {
   return url.replace(/^https?:\/\//, "");
 }
 
-async function buildTemplateComponents(template, { customerName, orderNumber, shopifyOrderId, order, shop }) {
+async function buildTemplateComponents(template, { customerName, orderNumber, shopifyOrderId, order, shop, imageUrlOverride }) {
   if (template.name === "order_confirmation_link") {
     const FALLBACK_IMAGE_URL = "https://cdn.shopify.com/s/files/1/0805/2437/8361/files/gift_card.png?v=1774602792";
     const imageUrl = (await getFirstLineItemImageUrl(shop, order)) || FALLBACK_IMAGE_URL;
@@ -78,8 +162,10 @@ async function buildTemplateComponents(template, { customerName, orderNumber, sh
   if (template.name === "order_confirmation_image") {
     // The template requires an image header on every send; fall back to a generic
     // placeholder if this order's product has none, rather than omitting it.
+    // `imageUrlOverride` lets the caller send one message per product (each with
+    // its own image) when an order has multiple distinct products.
     const FALLBACK_IMAGE_URL = "https://cdn.shopify.com/s/files/1/0805/2437/8361/files/gift_card.png?v=1774602792";
-    const imageUrl = (await getFirstLineItemImageUrl(shop, order)) || FALLBACK_IMAGE_URL;
+    const imageUrl = imageUrlOverride || (await getFirstLineItemImageUrl(shop, order)) || FALLBACK_IMAGE_URL;
     const components = [
       {
         type: "header",
@@ -389,17 +475,38 @@ async function handleOrderCreate(request) {
   // Process sending asynchronously so we return quickly.
   (async () => {
     try {
-      const templateResult = await sendTemplateMessage({
-        to: phone,
-        templateName: template.name,
-        language: template.language,
-        accessToken: credentials.accessToken,
-        phoneNumberId: credentials.phoneNumberId,
-        apiVersion: credentials.apiVersion,
-        components: await buildTemplateComponents(template, { customerName, orderNumber, shopifyOrderId, order, shop }),
-      });
+      // Multi-product orders get one swipeable carousel message (one card per
+      // product, each with its own image) via the approved
+      // "order_confirmation_slider" template; single-product orders keep
+      // using the plain single-image template.
+      const lineItemImages =
+        template.name === "order_confirmation_image" ? await getLineItemImagesForOrder(shop, order) : [];
 
-      const metaId = templateResult?.messages?.[0]?.id || null;
+      let metaId = null;
+      if (lineItemImages.length >= 2) {
+        const result = await sendTemplateMessage({
+          to: phone,
+          templateName: "order_confirmation_slider",
+          language: "en_US",
+          accessToken: credentials.accessToken,
+          phoneNumberId: credentials.phoneNumberId,
+          apiVersion: credentials.apiVersion,
+          components: buildCarouselComponents({ customerName, orderNumber, shopifyOrderId, order, lineItemImages }),
+        });
+        metaId = result?.messages?.[0]?.id || null;
+      } else {
+        const result = await sendTemplateMessage({
+          to: phone,
+          templateName: template.name,
+          language: template.language,
+          accessToken: credentials.accessToken,
+          phoneNumberId: credentials.phoneNumberId,
+          apiVersion: credentials.apiVersion,
+          components: await buildTemplateComponents(template, { customerName, orderNumber, shopifyOrderId, order, shop }),
+        });
+        metaId = result?.messages?.[0]?.id || null;
+      }
+
       await db.notificationLog.update({ where: { id: record.id }, data: { status: "sent", metaMessageId: metaId } });
       console.log(`[order-ping] notification_sent shop=${shop} order=${shopifyOrderId} metaId=${metaId}`);
     } catch (err) {
