@@ -36,10 +36,38 @@ async function getFirstLineItemImageUrl(shop, order) {
   }
 }
 
-// WhatsApp carousel templates allow 2-10 cards. We dedupe by product_id so a
-// repeat purchase in the same order (e.g. qty 2 of the same item split across
-// line items) doesn't waste a card slot, then cap at the Meta-enforced max.
+// Multi-product orders get one swipeable carousel message (one card per
+// product). Dedupe by product_id so a repeat purchase of the same item
+// doesn't waste a card slot, and cap at 10 (Meta's max cards per carousel).
+//
+// This WABA enforces an EXACT match between the number of cards sent and the
+// number of cards the template was approved with — contrary to Meta's docs,
+// which claim a single template can send anywhere from 2 to 10 cards. Sending
+// fewer (or more) cards than a template's approved count fails with
+// "(#132012) header component parameter should not be empty", confirmed by
+// direct testing. So each possible card count needs its own template.
 const CAROUSEL_MAX_CARDS = 10;
+const CAROUSEL_TEMPLATE_BY_COUNT = {
+  2: "order_confirmation_slider",
+  3: "order_confirmation_slider_3",
+  4: "order_confirmation_slider_4",
+  5: "order_confirmation_slider_5",
+  6: "order_confirmation_slider_6",
+  7: "order_confirmation_slider_7",
+  8: "order_confirmation_slider_8",
+  9: "order_confirmation_slider_9",
+  10: "order_confirmation_slider_v3",
+};
+
+// Each card's "Shop now" button must open that exact product's real page, but
+// a WhatsApp URL button only supports one static base URL shared by every
+// merchant on this app (see REQUIRED_TEMPLATES in order-events.server.js) —
+// per-merchant domains can't be baked into the template itself. So the base
+// URL points at our own /go/:token redirect route, and the token encodes
+// which shop + product handle to send the customer to.
+function buildProductRedirectToken(shop, handle) {
+  return Buffer.from(`${shop}|${handle}`, "utf8").toString("base64url");
+}
 
 async function getLineItemImagesForOrder(shop, order) {
   const items = order?.line_items || [];
@@ -62,14 +90,16 @@ async function getLineItemImagesForOrder(shop, order) {
   return Promise.all(
     deduped.map(async (li) => {
       let imageUrl = null;
+      let handle = null;
       try {
         if (li?.product_id && session?.accessToken) {
-          const res = await fetch(`https://${shop}/admin/api/2024-10/products/${li.product_id}.json?fields=image`, {
+          const res = await fetch(`https://${shop}/admin/api/2024-10/products/${li.product_id}.json?fields=image,handle`, {
             headers: { "X-Shopify-Access-Token": session.accessToken },
           });
           if (res.ok) {
             const data = await res.json();
             imageUrl = data?.product?.image?.src || null;
+            handle = data?.product?.handle || null;
           }
         }
       } catch (err) {
@@ -79,17 +109,15 @@ async function getLineItemImagesForOrder(shop, order) {
         imageUrl: imageUrl || FALLBACK_IMAGE_URL,
         title: li?.title || li?.name || "Item",
         quantity: String(li?.quantity || 1),
+        // Only a real product (with a resolvable handle) gets a working deep
+        // link; anything else falls back to the shop's storefront root so
+        // the button never points at a dead or wrong page.
+        redirectToken: handle ? buildProductRedirectToken(shop, handle) : buildProductRedirectToken(shop, ""),
       };
     }),
   );
 }
 
-// "order_confirmation_slider" (approved as a MARKETING-category Carousel
-// template — Meta doesn't support carousels under UTILITY) shows one
-// swipeable card per product, each with its own image. Every card in the
-// approved template has a static QUICK_REPLY button ("View item"); WhatsApp
-// still requires a payload parameter per button at send time even though the
-// button text itself is static.
 function buildCarouselComponents({ customerName, orderNumber, shopifyOrderId, order, lineItemImages }) {
   return [
     {
@@ -110,9 +138,9 @@ function buildCarouselComponents({ customerName, orderNumber, shopifyOrderId, or
           { type: "body", parameters: [{ type: "text", text: item.title }, { type: "text", text: item.quantity }] },
           {
             type: "button",
-            sub_type: "quick_reply",
+            sub_type: "url",
             index: "0",
-            parameters: [{ type: "payload", payload: `view_item_${index}` }],
+            parameters: [{ type: "text", text: item.redirectToken }],
           },
         ],
       })),
@@ -162,8 +190,6 @@ async function buildTemplateComponents(template, { customerName, orderNumber, sh
   if (template.name === "order_confirmation_image") {
     // The template requires an image header on every send; fall back to a generic
     // placeholder if this order's product has none, rather than omitting it.
-    // `imageUrlOverride` lets the caller send one message per product (each with
-    // its own image) when an order has multiple distinct products.
     const FALLBACK_IMAGE_URL = "https://cdn.shopify.com/s/files/1/0805/2437/8361/files/gift_card.png?v=1774602792";
     const imageUrl = imageUrlOverride || (await getFirstLineItemImageUrl(shop, order)) || FALLBACK_IMAGE_URL;
     const components = [
@@ -475,10 +501,6 @@ async function handleOrderCreate(request) {
   // Process sending asynchronously so we return quickly.
   (async () => {
     try {
-      // Multi-product orders get one swipeable carousel message (one card per
-      // product, each with its own image) via the approved
-      // "order_confirmation_slider" template; single-product orders keep
-      // using the plain single-image template.
       const lineItemImages =
         template.name === "order_confirmation_image" ? await getLineItemImagesForOrder(shop, order) : [];
 
@@ -486,7 +508,7 @@ async function handleOrderCreate(request) {
       if (lineItemImages.length >= 2) {
         const result = await sendTemplateMessage({
           to: phone,
-          templateName: "order_confirmation_slider",
+          templateName: CAROUSEL_TEMPLATE_BY_COUNT[lineItemImages.length],
           language: "en_US",
           accessToken: credentials.accessToken,
           phoneNumberId: credentials.phoneNumberId,
