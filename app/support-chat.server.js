@@ -131,6 +131,9 @@ export async function sendMessage({ shop, sender, body, file }) {
 export async function closeThread(shop) {
   const thread = await getOrCreateThread(shop);
   await supportPrisma.supportThread.update({ where: { id: thread.id }, data: { closedAt: new Date() } });
+  void notifyDashboard(shop, { type: "closed" }).catch((error) => {
+    console.error("Could not notify Supportly about a chat close.", error);
+  });
 }
 
 export async function reopenThread(shop) {
