@@ -319,9 +319,67 @@ body {
   color: #8b958f;
   font-size: 11px;
 }
+.op-field select {
+  width: 100%;
+  min-width: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1.5px solid #d5dfd8;
+  border-radius: 8px;
+  padding: 10px 38px 10px 12px;
+  background-color: #fcfdfc;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23137c56' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  color: var(--op-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 0.16s,
+    box-shadow 0.16s;
+}
+.op-field select:hover {
+  border-color: #9fcab2;
+}
+.op-field select:focus-visible {
+  outline: none;
+  border-color: var(--op-green);
+  box-shadow: 0 0 0 3px #137c5626;
+}
 .op-field small {
   font-size: 10px;
   color: var(--op-muted);
+}
+
+/* Language panel gets its own identity: a soft gradient card with a brand-
+   colored icon and accent border, rather than blending into the plain white
+   settings panels around it. */
+.op-language-panel {
+  background: linear-gradient(135deg, #f1faf4 0%, #e9f6ee 100%);
+  border: 1px solid #cfe9da;
+  position: relative;
+  overflow: hidden;
+}
+.op-language-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(180deg, #16865f 0%, #4fbf8d 100%);
+}
+.op-language-panel .op-section-icon {
+  background: linear-gradient(135deg, #16865f 0%, #1fa97b 100%);
+  color: #fff;
+  box-shadow: 0 3px 8px #16865f33;
+}
+.op-language-panel .op-field select {
+  background-color: #fff;
+  border-color: #bfe0cd;
+}
+.op-language-panel .op-field select:hover {
+  border-color: #7fc9a3;
 }
 .op-master-toggle {
   padding: 15px;

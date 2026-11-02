@@ -1,8 +1,10 @@
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { hasNotificationPlan } from "../services/billing.server";
-import { sendTemplateMessage } from "../services/whatsapp.server";
+import { sendTemplateMessageWithFallback } from "../services/whatsapp.server";
 import { getPhoneFromOrder, getCountryCodeFromOrder, normalizePhone, REQUIRED_TEMPLATES } from "../services/order-events.server";
+import { resolveSendLocale } from "../i18n/locale-send.server";
+import { templateLanguageCode } from "../i18n/messageTemplates";
 
 function buildItemsSummary(order) {
   const items = order?.line_items || [];
@@ -496,20 +498,23 @@ async function handleOrderCreate(request) {
     console.error("Failed to create notification log", err);
     return new Response(null, { status: 500 });
   }
-  console.log(`[order-ping] checkpoint pending_record_created id=${record.id} template=${template.name}/${template.language} phoneNumberId=${credentials.phoneNumberId}`);
+  console.log(`[order-ping] checkpoint pending_record_created id=${record.id} template=${template.name} phoneNumberId=${credentials.phoneNumberId}`);
 
   // Process sending asynchronously so we return quickly.
   (async () => {
     try {
+      const sendLocale = await resolveSendLocale(shop, settings);
       const lineItemImages =
         template.name === "order_confirmation_image" ? await getLineItemImagesForOrder(shop, order) : [];
 
       let metaId = null;
       if (lineItemImages.length >= 2) {
-        const result = await sendTemplateMessage({
+        const carouselName = CAROUSEL_TEMPLATE_BY_COUNT[lineItemImages.length];
+        const result = await sendTemplateMessageWithFallback({
           to: phone,
-          templateName: CAROUSEL_TEMPLATE_BY_COUNT[lineItemImages.length],
-          language: "en_US",
+          templateName: carouselName,
+          language: templateLanguageCode(carouselName, sendLocale),
+          fallbackLanguage: templateLanguageCode(carouselName, "en"),
           accessToken: credentials.accessToken,
           phoneNumberId: credentials.phoneNumberId,
           apiVersion: credentials.apiVersion,
@@ -517,10 +522,11 @@ async function handleOrderCreate(request) {
         });
         metaId = result?.messages?.[0]?.id || null;
       } else {
-        const result = await sendTemplateMessage({
+        const result = await sendTemplateMessageWithFallback({
           to: phone,
           templateName: template.name,
-          language: template.language,
+          language: templateLanguageCode(template.name, sendLocale),
+          fallbackLanguage: templateLanguageCode(template.name, "en"),
           accessToken: credentials.accessToken,
           phoneNumberId: credentials.phoneNumberId,
           apiVersion: credentials.apiVersion,

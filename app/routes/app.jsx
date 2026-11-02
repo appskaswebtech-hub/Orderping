@@ -4,30 +4,42 @@ import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
 import '../style/design.css';
 import SupportChatWidget from "../components/SupportChatWidget.jsx";
+import { resolveLocale } from "../i18n/locale.server";
+import { LanguageProvider, useTranslation } from "../i18n/LanguageContext";
 
 // No billing gate here — it's per-page (see requireActivePlan in
 // services/billing.server.js) so the Billing page itself doesn't redirect to
 // itself in a loop.
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
+  const locale = await resolveLocale({ admin, shop: session?.shop });
 
   // eslint-disable-next-line no-undef
-  return { apiKey: process.env.SHOPIFY_API_KEY || "" };
+  return { apiKey: process.env.SHOPIFY_API_KEY || "", locale };
 };
 
+function Nav() {
+  const { t } = useTranslation();
+  return (
+    <s-app-nav>
+      <s-link href="/app" rel="home">{t("nav.home")}</s-link>
+      <s-link href="/app/notifications">{t("nav.notifications")}</s-link>
+      <s-link href="/app/settings">{t("nav.settings")}</s-link>
+      <s-link href="/app/billing">{t("nav.billing")}</s-link>
+    </s-app-nav>
+  );
+}
+
 export default function App() {
-  const { apiKey } = useLoaderData();
+  const { apiKey, locale } = useLoaderData();
 
   return (
     <AppProvider embedded apiKey={apiKey}>
-      <s-app-nav>
-        <s-link href="/app" rel="home">Home</s-link>
-        <s-link href="/app/notifications">Notifications</s-link>
-        <s-link href="/app/settings">Settings</s-link>
-        <s-link href="/app/billing">Billing</s-link>
-      </s-app-nav>
-      <Outlet />
-      <SupportChatWidget />
+      <LanguageProvider locale={locale}>
+        <Nav />
+        <Outlet />
+        <SupportChatWidget />
+      </LanguageProvider>
     </AppProvider>
   );
 }

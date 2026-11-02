@@ -29,21 +29,22 @@ export const action = async ({ request }) => {
 };
 
 import PreferencesIcon from "../components/PreferencesIcon";
+import { useTranslation } from "../i18n/LanguageContext";
 
-const FREE_FEATURES = [
-  "Automatic WhatsApp order confirmations, with a product image and order link",
-  "Shipped, out for delivery, and delivered status updates",
-  "Refund initiated, order cancelled, and payment confirmed notifications",
-  "Full notification history log",
-  "Unlimited messages while testing, free for development stores",
+const FREE_FEATURE_KEYS = [
+  "billing.freeFeature1",
+  "billing.freeFeature2",
+  "billing.freeFeature3",
+  "billing.freeFeature4",
+  "billing.freeFeature5",
 ];
 
-const PRO_FEATURES = [
-  "8 Order & Shipment WhatsApp Notifications",
-  "Unlimited messages",
-  "Full notification history log",
-  "Customer opt-in controls",
-  "Priority support",
+const PRO_FEATURE_KEYS = [
+  "billing.proFeature1",
+  "billing.proFeature2",
+  "billing.proFeature3",
+  "billing.proFeature4",
+  "billing.proFeature5",
 ];
 
 /* eslint-disable react/prop-types -- Receives the local plan feature arrays. */
@@ -64,28 +65,28 @@ function FeatureList({ features }) {
 /* eslint-enable react/prop-types */
 
 export default function Billing() {
+  const { t } = useTranslation();
   const { isDevStore, subscription } = useLoaderData();
   const submit = useSubmit();
   const navigation = useNavigation();
   const isSubscribedToPro = !isDevStore && !!subscription;
   const isSubscribing = navigation.state !== "idle";
   const onSubscribe = () => submit(null, { method: "post" });
+  const freeFeatures = FREE_FEATURE_KEYS.map((key) => t(key));
+  const proFeatures = PRO_FEATURE_KEYS.map((key) => t(key));
 
   return (
-    <s-page heading="Billing">
+    <s-page heading={t("billing.heading")}>
       <div className="op-preferences op-billing">
         <header className="op-page-header">
           <div>
-            <div className="op-kicker">BUILT TO GROW WITH YOU</div>
-            <h1>Plans & billing</h1>
-            <p>
-              Keep customers connected, from your first order to your next
-              milestone.
-            </p>
+            <div className="op-kicker">{t("billing.kicker")}</div>
+            <h1>{t("billing.heading")}</h1>
+            <p>{t("billing.subheading")}</p>
           </div>
           <span className="op-billing-trust">
             <PreferencesIcon name="shield" size={16} />
-            Billed through Shopify
+            {t("billing.billedThroughShopify")}
           </span>
         </header>
 
@@ -94,20 +95,20 @@ export default function Billing() {
             <PreferencesIcon name="card" size={25} />
           </span>
           <div className="op-connection-copy">
-            <span className="op-kicker">YOUR SUBSCRIPTION</span>
+            <span className="op-kicker">{t("billing.yourSubscription")}</span>
             <h2>
               {isDevStore
-                ? "Development plan"
+                ? t("billing.devPlanTitle")
                 : isSubscribedToPro
-                  ? "You're on Pro"
-                  : "Ready for your next chapter?"}
+                  ? t("billing.proTitle")
+                  : t("billing.readyTitle")}
             </h2>
             <p>
               {isDevStore
-                ? "Build, test, and get everything ready. Your development store is covered."
+                ? t("billing.devPlanBody")
                 : isSubscribedToPro
-                  ? "Your store has access to all Pro features and unlimited messages."
-                  : "Activate Pro to start sending WhatsApp order updates on your live store."}
+                  ? t("billing.proBody")
+                  : t("billing.readyBody")}
             </p>
           </div>
           <div className="op-overview-price">
@@ -120,23 +121,21 @@ export default function Billing() {
                 <span className="op-pill op-pill-success">
                   <span className="op-status-dot" />
                   {isDevStore
-                    ? "Free for development"
-                    : `Status: ${subscription.status}`}
+                    ? t("billing.freeForDev")
+                    : t("billing.statusLabel", { status: subscription.status })}
                 </span>
               </>
             ) : (
               <span className="op-pill op-pill-warning">
-                No active subscription
+                {t("billing.noActiveSubscription")}
               </span>
             )}
           </div>
         </section>
 
         <div className="op-plans-heading">
-          <h2>A simple plan for every stage</h2>
-          <p>
-            All the order updates your customers need. One place to manage them.
-          </p>
+          <h2>{t("billing.plansHeading")}</h2>
+          <p>{t("billing.plansSubheading")}</p>
         </div>
         <div className="op-plans-grid">
           <section
@@ -146,36 +145,32 @@ export default function Billing() {
               <span className="op-plan-icon">
                 <PreferencesIcon name="key" size={22} />
               </span>
-              <span className="op-pill">Development stores</span>
+              <span className="op-pill">{t("billing.devStoresPill")}</span>
             </div>
-            <h2>Free</h2>
-            <p className="op-plan-description">
-              A little room to build something great.
-            </p>
+            <h2>{t("billing.free")}</h2>
+            <p className="op-plan-description">{t("billing.freeDescription")}</p>
             <div className="op-plan-price">
               $0<span> USD / month</span>
             </div>
-            <p className="op-plan-caption">
-              For development and test stores only
-            </p>
+            <p className="op-plan-caption">{t("billing.freeCaption")}</p>
             <div className="op-plan-divider" />
-            <h3>Everything you need to get started</h3>
-            <FeatureList features={FREE_FEATURES} />
+            <h3>{t("billing.freeFeaturesHeading")}</h3>
+            <FeatureList features={freeFeatures} />
             <div className="op-plan-footer">
               {isDevStore ? (
                 <div className="op-plan-current-label">
                   <PreferencesIcon name="check" size={17} />
-                  Your current plan
+                  {t("billing.currentPlan")}
                 </div>
               ) : (
                 <div className="op-plan-availability">
-                  Available on development stores only
+                  {t("billing.devOnlyAvailability")}
                 </div>
               )}
               <p>
                 {isDevStore
-                  ? "Free while you build and test your store."
-                  : "Running a live store? Pro has you covered."}
+                  ? t("billing.freeWhileBuilding")
+                  : t("billing.liveStoreCovered")}
               </p>
             </div>
           </section>
@@ -185,36 +180,34 @@ export default function Billing() {
           >
             <div className="op-plan-ribbon">
               <PreferencesIcon name="bolt" size={14} />
-              MADE FOR LIVE STORES
+              {t("billing.madeForLiveStores")}
             </div>
             <div className="op-plan-top">
               <span className="op-plan-icon">
                 <PreferencesIcon name="bolt" size={22} />
               </span>
               <span className="op-pill op-pill-success">
-                All features included
+                {t("billing.allFeaturesIncluded")}
               </span>
             </div>
-            <h2>Pro</h2>
-            <p className="op-plan-description">
-              Better updates. Happier customers.
-            </p>
+            <h2>{t("billing.pro")}</h2>
+            <p className="op-plan-description">{t("billing.proDescription")}</p>
             <div className="op-plan-price">
               $15.99<span> USD / month</span>
             </div>
-            <p className="op-plan-caption">One plan. Unlimited messages.</p>
+            <p className="op-plan-caption">{t("billing.proCaption")}</p>
             <div className="op-plan-divider" />
-            <h3>Your customer communication toolkit</h3>
-            <FeatureList features={PRO_FEATURES} />
+            <h3>{t("billing.proFeaturesHeading")}</h3>
+            <FeatureList features={proFeatures} />
             <div className="op-plan-footer">
               {isSubscribedToPro ? (
                 <div className="op-plan-current-label">
                   <PreferencesIcon name="check" size={17} />
-                  Your current plan
+                  {t("billing.currentPlan")}
                 </div>
               ) : isDevStore ? (
                 <div className="op-plan-availability">
-                  Available when your store goes live
+                  {t("billing.availableWhenLive")}
                 </div>
               ) : (
                 <button
@@ -223,16 +216,18 @@ export default function Billing() {
                   onClick={onSubscribe}
                   disabled={isSubscribing}
                 >
-                  {isSubscribing ? "Opening Shopify..." : "Subscribe to Pro"}
+                  {isSubscribing
+                    ? t("billing.openingShopify")
+                    : t("billing.subscribeToPro")}
                   <PreferencesIcon name="arrow" size={17} />
                 </button>
               )}
               <p>
                 {isSubscribedToPro
-                  ? "You're all set. Keep your customers in the loop."
+                  ? t("billing.allSetKeepLoop")
                   : isDevStore
-                    ? "Keep testing for free on your development plan."
-                    : "You'll review and approve the charge in Shopify."}
+                    ? t("billing.keepTestingFree")
+                    : t("billing.reviewApproveCharge")}
               </p>
             </div>
           </section>
@@ -244,11 +239,8 @@ export default function Billing() {
               <PreferencesIcon name="shield" />
             </span>
             <div>
-              <h3>Simple, secure billing</h3>
-              <p>
-                Your subscription is handled through Shopify, so you can easily
-                keep track of your app charges.
-              </p>
+              <h3>{t("billing.simpleSecureBilling")}</h3>
+              <p>{t("billing.subscriptionHandled")}</p>
             </div>
           </div>
           <div>
@@ -256,11 +248,11 @@ export default function Billing() {
               <PreferencesIcon name="chat" />
             </span>
             <div>
-              <h3>Need a hand?</h3>
+              <h3>{t("billing.needHand")}</h3>
               <p>
-                Have a billing question?{" "}
+                {t("billing.billingQuestion")}{" "}
                 <a href="mailto:apps.kaswebtech@gmail.com">
-                  Get in touch with our team.
+                  {t("billing.getInTouch")}
                 </a>
               </p>
             </div>
@@ -268,9 +260,9 @@ export default function Billing() {
         </div>
         <div className="op-billing-bottom">
           <PreferencesIcon name="chat" size={16} />
-          <span>Make every order feel personal.</span>
+          <span>{t("billing.makeItPersonal")}</span>
           <Link to="/app/settings" className="op-text-link">
-            Go to settings <PreferencesIcon name="arrow" size={15} />
+            {t("billing.goToSettings")} <PreferencesIcon name="arrow" size={15} />
           </Link>
         </div>
       </div>

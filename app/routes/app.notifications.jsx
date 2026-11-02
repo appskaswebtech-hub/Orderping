@@ -10,25 +10,26 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { requireActivePlan } from "../services/billing.server";
 import db from "../db.server";
+import { useTranslation } from "../i18n/LanguageContext";
 
 const STATUSES = [
   {
     key: "sent",
-    label: "Sent",
+    labelKey: "home.sent",
     icon: "check",
-    description: "Sent to WhatsApp",
+    descriptionKey: "home.sentDesc",
   },
   {
     key: "failed",
-    label: "Failed",
+    labelKey: "home.failed",
     icon: "alert",
-    description: "Needs your attention",
+    descriptionKey: "home.failedDesc",
   },
   {
     key: "pending",
-    label: "Pending",
+    labelKey: "home.pending",
     icon: "clock",
-    description: "Waiting to be sent",
+    descriptionKey: "home.pendingDesc",
   },
 ];
 
@@ -163,41 +164,38 @@ function LogIcon({ name, size = 20 }) {
   );
 }
 
-function StatusBadge({ status }) {
+function StatusBadge({ status, t }) {
   const known = STATUSES.find((item) => item.key === status);
   return (
     <span className={`op-log-status op-log-status-${known ? status : "other"}`}>
       <LogIcon name={known?.icon || "clock"} size={13} />
-      {known?.label || status || "Unknown"}
+      {known ? t(known.labelKey) : status || t("notifications.unknown")}
     </span>
   );
 }
 /* eslint-enable react/prop-types */
 
-const UPDATE_NAMES = {
-  whatsapp: "Order confirmation",
-  whatsapp_shipped: "Shipped",
-  whatsapp_out_for_delivery: "Out for delivery",
-  whatsapp_delivered: "Delivered",
-  whatsapp_refund: "Refund initiated",
-  whatsapp_cancelled: "Cancelled",
-  whatsapp_paid: "Payment received",
-  whatsapp_partially_fulfilled: "Partially fulfilled",
+const UPDATE_TYPE_KEYS = {
+  whatsapp: "notifications.type.whatsapp",
+  whatsapp_shipped: "notifications.type.whatsapp_shipped",
+  whatsapp_out_for_delivery: "notifications.type.whatsapp_out_for_delivery",
+  whatsapp_delivered: "notifications.type.whatsapp_delivered",
+  whatsapp_refund: "notifications.type.whatsapp_refund",
+  whatsapp_cancelled: "notifications.type.whatsapp_cancelled",
+  whatsapp_paid: "notifications.type.whatsapp_paid",
+  whatsapp_partially_fulfilled: "notifications.type.whatsapp_partially_fulfilled",
 };
 
-function formatUpdate(type) {
-  return (
-    UPDATE_NAMES[type] ||
-    (type
-      ? type
-          .replaceAll("_", " ")
-          .replace(/^./, (letter) => letter.toUpperCase())
-      : "Order update")
-  );
+function formatUpdate(type, t) {
+  const key = UPDATE_TYPE_KEYS[type];
+  if (key) return t(key);
+  if (type) return type.replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase());
+  return t("notifications.type.default");
 }
 
 /* eslint-disable jsx-a11y/no-noninteractive-tabindex -- The scroll region needs keyboard focus so the table can be scrolled with arrow keys. */
 export default function Notifications() {
+  const { t } = useTranslation();
   const { items, total, page, limit, query, status, summary, unavailable } =
     useLoaderData();
   const [searchParams] = useSearchParams();
@@ -221,17 +219,17 @@ export default function Notifications() {
   const clearUrl = logUrl({ q: null, status: null, page: null });
 
   return (
-    <s-page heading="Notifications">
+    <s-page heading={t("notifications.heading")}>
       <div className="op-dashboard op-notifications">
         <header className="op-page-header">
           <div>
-            <h1>Notifications</h1>
-            <p>Track every WhatsApp update sent to your customers.</p>
+            <h1>{t("notifications.heading")}</h1>
+            <p>{t("notifications.subheading")}</p>
           </div>
           <div className="op-log-actions">
             <Link to="/app/settings" className="op-button op-button-secondary">
               <LogIcon name="settings" size={16} />
-              Settings
+              {t("nav.settings")}
             </Link>
             <button
               type="button"
@@ -240,7 +238,7 @@ export default function Notifications() {
               disabled={busy}
             >
               <LogIcon name="refresh" size={16} />
-              {busy ? "Refreshing…" : "Refresh"}
+              {busy ? t("notifications.refreshing") : t("notifications.refresh")}
             </button>
           </div>
         </header>
@@ -250,24 +248,21 @@ export default function Notifications() {
             <LogIcon name="chat" size={27} />
           </span>
           <div>
-            <h2>Every order update, in one place.</h2>
-            <p>
-              Find a notification, check its status, and see what needs
-              attention.
-            </p>
+            <h2>{t("notifications.introTitle")}</h2>
+            <p>{t("notifications.introBody")}</p>
           </div>
           <span className="op-log-channel">WhatsApp</span>
         </div>
 
         <section
           className="op-stats-grid"
-          aria-label="Notification totals, all time"
+          aria-label={t("home.statsAriaLabel")}
         >
           {[
             {
               key: "total",
-              label: "Total notifications",
-              description: "All notification attempts",
+              labelKey: "home.totalNotifications",
+              descriptionKey: "home.allAttempts",
               icon: "chart",
             },
             ...STATUSES,
@@ -277,7 +272,7 @@ export default function Notifications() {
               key={item.key}
             >
               <div className="op-stat-top">
-                <h2>{item.label}</h2>
+                <h2>{t(item.labelKey)}</h2>
                 <span
                   className={`op-icon op-icon-${item.key === "total" ? "neutral" : item.key}`}
                 >
@@ -287,7 +282,7 @@ export default function Notifications() {
               <strong className="op-stat-value">
                 {unavailable ? "—" : summary[item.key].toLocaleString()}
               </strong>
-              <p>{item.description}</p>
+              <p>{t(item.descriptionKey)}</p>
             </article>
           ))}
         </section>
@@ -299,22 +294,22 @@ export default function Notifications() {
         >
           <div className="op-log-panel-top">
             <div>
-              <h2 id="op-log-title">Notification log</h2>
-              <p>Latest attempts first · Summary totals are for all time</p>
+              <h2 id="op-log-title">{t("notifications.logTitle")}</h2>
+              <p>{t("notifications.logSubtitle")}</p>
             </div>
             <span className="op-period">
               {unavailable
-                ? "Unavailable"
-                : `${total.toLocaleString()} ${filtered ? "matches" : "notifications"}`}
+                ? t("notifications.unavailable")
+                : `${total.toLocaleString()} ${filtered ? t("notifications.matches") : t("notifications.notificationsWord")}`}
             </span>
           </div>
           <div className="op-log-tools">
             <nav
               className="op-log-filters"
-              aria-label="Filter by notification status"
+              aria-label={t("notifications.filterAriaLabel")}
             >
               {[
-                { key: "all", label: "All", count: summary.total },
+                { key: "all", labelKey: "notifications.all", count: summary.total },
                 ...STATUSES.map((item) => ({
                   ...item,
                   count: summary[item.key],
@@ -326,7 +321,7 @@ export default function Notifications() {
                   className={`op-log-filter ${status === item.key ? "op-log-filter-active" : ""}`}
                   aria-current={status === item.key ? "page" : undefined}
                 >
-                  {item.label}
+                  {t(item.labelKey)}
                   <span>{unavailable ? "—" : item.count.toLocaleString()}</span>
                 </Link>
               ))}
@@ -355,7 +350,7 @@ export default function Notifications() {
                 htmlFor="op-log-search-input"
                 className="op-visually-hidden"
               >
-                Search by order, customer or phone
+                {t("notifications.searchLabel")}
               </label>
               <span className="op-log-search-field">
                 <LogIcon name="search" size={17} />
@@ -363,7 +358,7 @@ export default function Notifications() {
                   id="op-log-search-input"
                   type="search"
                   name="q"
-                  placeholder="Search order, customer or phone"
+                  placeholder={t("notifications.searchPlaceholder")}
                   defaultValue={query}
                   maxLength={100}
                 />
@@ -373,7 +368,7 @@ export default function Notifications() {
                 className="op-button op-button-secondary"
                 disabled={busy}
               >
-                Search
+                {t("notifications.search")}
               </button>
             </Form>
           </div>
@@ -381,11 +376,13 @@ export default function Notifications() {
             <div className="op-log-applied">
               <span>
                 {query
-                  ? `Results for “${query}”`
-                  : `${STATUSES.find((item) => item.key === status)?.label} notifications`}
+                  ? t("notifications.resultsFor", { query })
+                  : t("notifications.statusNotifications", {
+                      status: t(STATUSES.find((item) => item.key === status)?.labelKey || "notifications.all"),
+                    })}
               </span>
               <Link to={clearUrl} className="op-text-link">
-                Clear filters
+                {t("notifications.clearFilters")}
               </Link>
             </div>
           )}
@@ -395,18 +392,15 @@ export default function Notifications() {
               <span className="op-log-empty-icon op-icon-failed">
                 <LogIcon name="alert" size={30} />
               </span>
-              <h3>We couldn’t load your notifications</h3>
-              <p>
-                Refresh to try again. Your notification history will appear here
-                when it’s available.
-              </p>
+              <h3>{t("notifications.loadErrorTitle")}</h3>
+              <p>{t("notifications.loadErrorBody")}</p>
               <button
                 type="button"
                 className="op-button op-button-primary"
                 onClick={() => revalidator.revalidate()}
                 disabled={busy}
               >
-                {busy ? "Retrying…" : "Try again"}
+                {busy ? t("notifications.retrying") : t("notifications.tryAgain")}
               </button>
             </div>
           ) : items.length === 0 ? (
@@ -416,24 +410,24 @@ export default function Notifications() {
               </span>
               <h3>
                 {filtered
-                  ? "No matching notifications"
-                  : "Your notification history starts here"}
+                  ? t("notifications.noMatchTitle")
+                  : t("notifications.emptyTitle")}
               </h3>
               <p>
                 {filtered
-                  ? "Try another order number, customer name or phone number, or clear your filters."
-                  : "Once notifications are enabled, messages triggered by your selected order events will appear here."}
+                  ? t("notifications.noMatchBody")
+                  : t("notifications.emptyBody")}
               </p>
               {filtered ? (
                 <Link to={clearUrl} className="op-button op-button-secondary">
-                  Clear filters
+                  {t("notifications.clearFilters")}
                 </Link>
               ) : (
                 <Link
                   to="/app/settings"
                   className="op-button op-button-primary"
                 >
-                  Open notification settings
+                  {t("notifications.openSettings")}
                   <LogIcon name="arrow" size={16} />
                 </Link>
               )}
@@ -443,23 +437,22 @@ export default function Notifications() {
               className="op-log-table-wrap"
               tabIndex={0}
               role="region"
-              aria-label="Notification history. Scroll horizontally to see all columns."
+              aria-label={t("notifications.tableAriaLabel")}
             >
               <table className="op-log-table">
                 <caption className="op-visually-hidden">
-                  Notification attempts, newest first. Dates and times are in
-                  UTC.
+                  {t("notifications.tableCaption")}
                 </caption>
                 <thead>
                   <tr>
                     <th scope="col">
-                      Created <span>(UTC)</span>
+                      {t("notifications.colCreated")} <span>{t("notifications.utc")}</span>
                     </th>
-                    <th scope="col">Order</th>
-                    <th scope="col">Customer</th>
-                    <th scope="col">Update</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Details</th>
+                    <th scope="col">{t("notifications.colOrder")}</th>
+                    <th scope="col">{t("notifications.colCustomer")}</th>
+                    <th scope="col">{t("notifications.colUpdate")}</th>
+                    <th scope="col">{t("notifications.colStatus")}</th>
+                    <th scope="col">{t("notifications.colDetails")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -495,15 +488,15 @@ export default function Notifications() {
                       </td>
                       <td>
                         <span className="op-log-customer">
-                          {item.customerName || "Customer"}
+                          {item.customerName || t("notifications.customerFallback")}
                         </span>
                         <span className="op-log-subtext">
-                          {item.customerPhone || "No phone recorded"}
+                          {item.customerPhone || t("notifications.noPhoneRecorded")}
                         </span>
                       </td>
-                      <td>{formatUpdate(item.notificationType)}</td>
+                      <td>{formatUpdate(item.notificationType, t)}</td>
                       <td>
-                        <StatusBadge status={item.status} />
+                        <StatusBadge status={item.status} t={t} />
                       </td>
                       <td>
                         {item.errorMessage || item.metaMessageId ? (
@@ -511,15 +504,15 @@ export default function Notifications() {
                             className={`op-log-details ${item.errorMessage ? "op-log-details-error" : ""}`}
                           >
                             <summary>
-                              {item.errorMessage ? "View error" : "Message ID"}
+                              {item.errorMessage ? t("notifications.viewError") : t("notifications.messageId")}
                             </summary>
                             <pre>{item.errorMessage || item.metaMessageId}</pre>
                           </details>
                         ) : (
                           <span className="op-log-subtext">
                             {item.status === "pending"
-                              ? "Awaiting send"
-                              : "No additional details"}
+                              ? t("notifications.awaitingSend")
+                              : t("notifications.noAdditionalDetails")}
                           </span>
                         )}
                       </td>
@@ -534,21 +527,25 @@ export default function Notifications() {
             <footer className="op-log-pagination">
               <p>
                 {total
-                  ? `Showing ${rangeStart.toLocaleString()}–${rangeEnd.toLocaleString()} of ${total.toLocaleString()}`
-                  : "Showing 0 notifications"}
+                  ? t("notifications.showingRange", {
+                      start: rangeStart.toLocaleString(),
+                      end: rangeEnd.toLocaleString(),
+                      total: total.toLocaleString(),
+                    })
+                  : t("notifications.showingZero")}
               </p>
               <div>
                 <span className="op-log-page-count">
-                  Page {page} of {pages}
+                  {t("notifications.pageOf", { page, pages })}
                 </span>
                 {page > 1 ? (
                   <Link
                     to={logUrl({ page: page - 1 })}
                     className="op-button op-button-secondary"
-                    aria-label="Previous page"
+                    aria-label={t("notifications.previous")}
                   >
                     <LogIcon name="back" size={15} />
-                    Previous
+                    {t("notifications.previous")}
                   </Link>
                 ) : (
                   <button
@@ -557,16 +554,16 @@ export default function Notifications() {
                     disabled
                   >
                     <LogIcon name="back" size={15} />
-                    Previous
+                    {t("notifications.previous")}
                   </button>
                 )}
                 {page < pages ? (
                   <Link
                     to={logUrl({ page: page + 1 })}
                     className="op-button op-button-secondary"
-                    aria-label="Next page"
+                    aria-label={t("notifications.next")}
                   >
-                    Next
+                    {t("notifications.next")}
                     <LogIcon name="arrow" size={15} />
                   </Link>
                 ) : (
@@ -575,7 +572,7 @@ export default function Notifications() {
                     className="op-button op-button-secondary"
                     disabled
                   >
-                    Next
+                    {t("notifications.next")}
                     <LogIcon name="arrow" size={15} />
                   </button>
                 )}
@@ -585,8 +582,7 @@ export default function Notifications() {
         </section>
         <p className="op-log-footnote">
           <LogIcon name="clock" size={14} />
-          New activity appears when you refresh. “Sent” means the message was
-          accepted by WhatsApp.
+          {t("notifications.footnote")}
         </p>
       </div>
     </s-page>

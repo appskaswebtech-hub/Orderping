@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
+import { useTranslation } from "../i18n/LanguageContext";
 
 export const loader = async ({ request }) => {
   await authenticate.admin(request);
@@ -47,16 +48,15 @@ function Step({ number, title, children }) {
 }
 
 export default function MetaSetupGuide() {
+  const { t } = useTranslation();
   return (
-    <s-page heading="Get your WhatsApp credentials">
+    <s-page heading={t("guide.heading")}>
       <div style={pageBg}>
         <s-stack direction="block" gap="loose">
           <div style={{ ...cardBase, background: "linear-gradient(90deg, #FEFCF7 0%, #FDF8ED 100%)" }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#14181f" }}>Get your WhatsApp credentials</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#14181f" }}>{t("guide.heading")}</div>
             <div style={{ fontSize: 13, color: "#6d7175", marginTop: 6, marginBottom: 16 }}>
-              The quick version is below, tailored to exactly what this app needs. For the full, always
-              up-to-date walkthrough straight from Meta (including screenshots and edge cases), use their
-              official guide instead:
+              {t("guide.intro")}
             </div>
             <a
               href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started"
@@ -75,12 +75,11 @@ export default function MetaSetupGuide() {
                 textDecoration: "none",
               }}
             >
-              Open Meta's official WhatsApp Cloud API guide ↗
+              {t("guide.openMetaGuide")}
             </a>
 
             <div style={{ fontSize: 13, color: "#6d7175", marginTop: 20, marginBottom: 10 }}>
-              Need to verify your business and your phone number first? Check Meta's official documentation
-              on setting up your business and getting your phone number verified:
+              {t("guide.verifyIntro")}
             </div>
             <a
               href="https://developers.facebook.com/docs/whatsapp/cloud-api/phone-numbers"
@@ -100,64 +99,56 @@ export default function MetaSetupGuide() {
                 textDecoration: "none",
               }}
             >
-              Business setup &amp; phone number verification guide ↗
+              {t("guide.verifyGuide")}
             </a>
           </div>
 
           <div style={cardBase}>
-            <Step number={1} title="Create a Meta app">
-              Go to{" "}
+            <Step number={1} title={t("guide.step1Title")}>
+              {t("guide.step1Body1")}{" "}
               <a href="https://developers.facebook.com/apps" target="_blank" rel="noreferrer" style={{ color: COLORS.gold, fontWeight: 700 }}>
                 developers.facebook.com/apps
               </a>{" "}
-              and click <strong>Create App</strong>. Choose the "Connect with customers through WhatsApp" use
-              case, and link it to your business portfolio when prompted.
+              {t("guide.step1Body2")} <strong>Create App</strong>{t("guide.step1Body3")}
             </Step>
 
-            <Step number={2} title="Open WhatsApp API Setup">
-              Inside your new app, go to <strong>WhatsApp &gt; API Setup</strong>. Your{" "}
-              <strong>Phone Number ID</strong> is shown right there under "From" — copy it into Settings.
-              You can also find your <strong>WhatsApp Business Account ID</strong> on this same page.
+            <Step number={2} title={t("guide.step2Title")}>
+              {t("guide.step2Body1")} <strong>WhatsApp &gt; API Setup</strong>{t("guide.step2Body2")}{" "}
+              <strong>Phone Number ID</strong> {t("guide.step2Body3")} <strong>WhatsApp Business Account ID</strong> {t("guide.step2Body4")}
             </Step>
 
-            <Step number={3} title="Create a System User for a permanent token">
-              Temporary tokens from API Setup expire in 24 hours. For a token that doesn't expire, go to{" "}
-              <strong>business.facebook.com</strong> → Business Settings → Users → System Users → create one
-              (Admin role), then assign it access to both your new app and your WhatsApp Business Account
-              (Full control on each).
+            <Step number={3} title={t("guide.step3Title")}>
+              {t("guide.step3Body1")}{" "}
+              <strong>business.facebook.com</strong> {t("guide.step3Body2")}
             </Step>
 
-            <Step number={4} title="Generate the token">
-              Back on the System User, click <strong>Generate token</strong>, select your app, set expiration
-              to <strong>Never</strong>, and check the <code>whatsapp_business_messaging</code> and{" "}
-              <code>whatsapp_business_management</code> permissions. Copy the token shown — it's only
-              displayed once — and paste it into the <strong>Access token</strong> field in Settings.
+            <Step number={4} title={t("guide.step4Title")}>
+              {t("guide.step4Body1")} <strong>Generate token</strong>{t("guide.step4Body2")}{" "}
+              <strong>Never</strong>{t("guide.step4Body3")} <code>whatsapp_business_messaging</code> {t("guide.step4Body4")}{" "}
+              <code>whatsapp_business_management</code> {t("guide.step4Body5")} <strong>Access token</strong> {t("guide.step4Body6")}
             </Step>
 
-            <Step number={5} title="API version">
-              Leave this as the default unless Meta has told you otherwise — it matches the Graph API version
-              your WhatsApp Business Account is using.
+            <Step number={5} title={t("guide.step5Title")}>
+              {t("guide.step5Body")}
             </Step>
 
-            <Step number={6} title="Create your message templates">
-              Finally, go to <strong>WhatsApp Manager &gt; Message templates</strong> and create each
-              template listed in the "Required WhatsApp templates" table back on the Settings page, using
-              the exact names and languages shown there.
+            <Step number={6} title={t("guide.step6Title")}>
+              {t("guide.step6Body1")} <strong>WhatsApp Manager &gt; Message templates</strong> {t("guide.step6Body2")}
             </Step>
           </div>
 
           <div style={{ ...cardBase, background: COLORS.goldSoft, border: `1px solid ${COLORS.goldBorder}` }}>
             <div style={{ fontSize: 13, color: "#6d5520", lineHeight: 1.6 }}>
-              Prefer not to do this yourself? Email{" "}
+              {t("guide.doneForYou")}{" "}
               <a href="mailto:apps.kaswebtech@gmail.com" style={{ color: COLORS.gold, fontWeight: 700 }}>
                 apps.kaswebtech@gmail.com
               </a>{" "}
-              for a paid, done-for-you setup.
+              {t("guide.doneForYouEnd")}
             </div>
           </div>
 
           <Link to="/app/settings" style={{ color: COLORS.gold, fontWeight: 700, fontSize: 13 }}>
-            ← Back to Settings
+            {t("guide.backToSettings")}
           </Link>
         </s-stack>
       </div>

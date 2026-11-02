@@ -81,6 +81,33 @@ async function sendTemplateMessage({ to, templateName, language = "en_US", compo
   return data;
 }
 
+// Meta's error code for "this template name + language combination isn't
+// approved" — used so a shop's chosen language without an approved variant
+// of a given template falls back to English rather than losing the message.
+const TEMPLATE_NOT_FOUND_CODE = 132001;
+
+async function sendTemplateMessageWithFallback({
+  to,
+  templateName,
+  language,
+  fallbackLanguage,
+  components,
+  accessToken,
+  phoneNumberId,
+  apiVersion,
+}) {
+  try {
+    return await sendTemplateMessage({ to, templateName, language, components, accessToken, phoneNumberId, apiVersion });
+  } catch (err) {
+    const isTemplateNotFound = err?.body?.error?.code === TEMPLATE_NOT_FOUND_CODE;
+    if (isTemplateNotFound && fallbackLanguage && fallbackLanguage !== language) {
+      console.warn(`[order-ping] template_variant_missing template=${templateName} language=${language}; retrying in ${fallbackLanguage}`);
+      return await sendTemplateMessage({ to, templateName, language: fallbackLanguage, components, accessToken, phoneNumberId, apiVersion });
+    }
+    throw err;
+  }
+}
+
 async function testConnection({ accessToken, phoneNumberId, apiVersion = "v17.0" }) {
   const token = accessToken || process.env.META_ACCESS_TOKEN;
   const phoneId = phoneNumberId || process.env.META_PHONE_NUMBER_ID;
@@ -105,4 +132,4 @@ async function testConnection({ accessToken, phoneNumberId, apiVersion = "v17.0"
   return data;
 }
 
-export { sendTextMessage, sendTemplateMessage, testConnection };
+export { sendTextMessage, sendTemplateMessage, sendTemplateMessageWithFallback, testConnection };

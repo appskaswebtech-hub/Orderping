@@ -3,6 +3,7 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { requireActivePlan } from "../services/billing.server";
 import db from "../db.server";
+import { useTranslation } from "../i18n/LanguageContext";
 
 export const loader = async ({ request }) => {
   const { admin, billing, session } = await authenticate.admin(request);
@@ -47,22 +48,22 @@ export const loader = async ({ request }) => {
 const DELIVERY_STATES = [
   {
     key: "sent",
-    label: "Sent",
-    description: "Sent to WhatsApp",
+    labelKey: "home.sent",
+    descriptionKey: "home.sentDesc",
     color: "#16865f",
     icon: "check",
   },
   {
     key: "failed",
-    label: "Failed",
-    description: "Needs your attention",
+    labelKey: "home.failed",
+    descriptionKey: "home.failedDesc",
     color: "#d04747",
     icon: "alert",
   },
   {
     key: "pending",
-    label: "Pending",
-    description: "Waiting to be sent",
+    labelKey: "home.pending",
+    descriptionKey: "home.pendingDesc",
     color: "#5475d6",
     icon: "clock",
   },
@@ -129,6 +130,7 @@ function Icon({ name, size = 20 }) {
 }
 
 function DonutChart({ analytics, unavailable }) {
+  const { t } = useTranslation();
   const total = DELIVERY_STATES.reduce(
     (sum, state) => sum + analytics[state.key],
     0,
@@ -142,8 +144,13 @@ function DonutChart({ analytics, unavailable }) {
       role="img"
       aria-label={
         unavailable
-          ? "Delivery data unavailable"
-          : `${total.toLocaleString()} notifications: ${analytics.sent} sent, ${analytics.failed} failed, ${analytics.pending} pending`
+          ? t("home.deliveryDataUnavailable")
+          : t("home.summaryAria", {
+              total: total.toLocaleString(),
+              sent: analytics.sent,
+              failed: analytics.failed,
+              pending: analytics.pending,
+            })
       }
     >
       <svg viewBox="0 0 160 160" aria-hidden="true">
@@ -179,7 +186,7 @@ function DonutChart({ analytics, unavailable }) {
       </svg>
       <div className="op-donut-label">
         <strong>{unavailable ? "—" : total.toLocaleString()}</strong>
-        <span>Notifications</span>
+        <span>{t("home.notificationsLabel")}</span>
       </div>
     </div>
   );
@@ -203,6 +210,7 @@ function QuickLink({ to, icon, title, children }) {
 /* eslint-enable react/prop-types */
 
 export default function Index() {
+  const { t } = useTranslation();
   const { stats, settings, analyticsUnavailable = false } = useLoaderData();
   const analytics = stats || {
     totalNotifications: 0,
@@ -215,10 +223,10 @@ export default function Index() {
     settings?.ENABLED_OPT_IN_CONFIRMED === "true";
   const hasNotifications = analytics.totalNotifications > 0;
   const status = analyticsUnavailable
-    ? "Unavailable"
+    ? t("home.statusUnavailable")
     : isEnabled
-      ? "Enabled"
-      : "Disabled";
+      ? t("home.statusEnabled")
+      : t("home.statusDisabled");
   const successRate =
     analytics.totalNotifications > 0
       ? Math.round((analytics.sent / analytics.totalNotifications) * 100)
@@ -229,15 +237,15 @@ export default function Index() {
       <div className="op-dashboard">
         <header className="op-page-header">
           <div>
-            <h1>Overview</h1>
-            <p>Your WhatsApp notifications, at a glance.</p>
+            <h1>{t("home.overview")}</h1>
+            <p>{t("home.subheading")}</p>
           </div>
           <Link
             to="/app/notifications"
             className="op-button op-button-secondary"
           >
             <Icon name="document" size={16} />
-            View notification log
+            {t("home.viewLog")}
           </Link>
         </header>
 
@@ -245,38 +253,38 @@ export default function Index() {
           <div className="op-welcome-copy">
             <div className="op-eyebrow">
               <Icon name="chat" size={16} />
-              WHATSAPP ORDER UPDATES
+              {t("home.eyebrow")}
             </div>
-            <h2 id="op-welcome-title">Keep customers in the loop.</h2>
+            <h2 id="op-welcome-title">{t("home.welcomeTitle")}</h2>
             <p>
-              Send timely order updates on WhatsApp.
-              <br />A little reassurance, from checkout to delivery.
+              {t("home.welcomeBody1")}
+              <br />{t("home.welcomeBody2")}
             </p>
             <Link to="/app/settings" className="op-button op-button-primary">
-              Manage notifications
+              {t("home.manageNotifications")}
               <Icon name="arrow" size={16} />
             </Link>
           </div>
           <div
             className="op-message-preview"
-            aria-label="Example WhatsApp notification"
+            aria-label={t("home.exampleAriaLabel")}
           >
             <div className="op-message-heading">
               <span className="op-icon op-icon-green">
                 <Icon name="chat" size={20} />
               </span>
               <div>
-                <strong>Order update</strong>
-                <span>WhatsApp notification</span>
+                <strong>{t("home.orderUpdate")}</strong>
+                <span>{t("home.whatsappNotification")}</span>
               </div>
-              <span className="op-example-label">Example</span>
+              <span className="op-example-label">{t("home.example")}</span>
             </div>
             <div className="op-message-bubble">
-              <strong>Your order is on its way 🎉</strong>
+              <strong>{t("home.exampleMsgTitle")}</strong>
               <p>
-                We’ll keep you updated on its journey.
+                {t("home.exampleMsgBody1")}
                 <br />
-                Thanks for shopping with us!
+                {t("home.exampleMsgBody2")}
               </p>
               <span className="op-message-checks">
                 <Icon name="check" size={12} />
@@ -289,20 +297,17 @@ export default function Index() {
         {analyticsUnavailable && (
           <div className="op-load-alert" role="alert">
             <Icon name="alert" size={18} />
-            <span>
-              We couldn’t load your dashboard data. Refresh the page to try
-              again.
-            </span>
+            <span>{t("home.loadError")}</span>
           </div>
         )}
 
         <section
           className="op-stats-grid"
-          aria-label="Notification totals, all time"
+          aria-label={t("home.statsAriaLabel")}
         >
           <article className="op-stat-card">
             <div className="op-stat-top">
-              <h2>Total notifications</h2>
+              <h2>{t("home.totalNotifications")}</h2>
               <span className="op-icon op-icon-neutral">
                 <Icon name="chart" size={18} />
               </span>
@@ -312,7 +317,7 @@ export default function Index() {
                 ? "—"
                 : analytics.totalNotifications.toLocaleString()}
             </strong>
-            <p>All notification attempts</p>
+            <p>{t("home.allAttempts")}</p>
           </article>
           {DELIVERY_STATES.map((state) => (
             <article
@@ -320,7 +325,7 @@ export default function Index() {
               key={state.key}
             >
               <div className="op-stat-top">
-                <h2>{state.label}</h2>
+                <h2>{t(state.labelKey)}</h2>
                 <span className={`op-icon op-icon-${state.key}`}>
                   <Icon name={state.icon} size={18} />
                 </span>
@@ -330,7 +335,7 @@ export default function Index() {
                   ? "—"
                   : analytics[state.key].toLocaleString()}
               </strong>
-              <p>{state.description}</p>
+              <p>{t(state.descriptionKey)}</p>
             </article>
           ))}
         </section>
@@ -339,10 +344,10 @@ export default function Index() {
           <section className="op-panel" aria-labelledby="op-delivery-title">
             <div className="op-panel-heading">
               <div>
-                <h2 id="op-delivery-title">Delivery overview</h2>
-                <p>How your notifications are performing</p>
+                <h2 id="op-delivery-title">{t("home.deliveryOverview")}</h2>
+                <p>{t("home.deliveryOverviewSub")}</p>
               </div>
-              <span className="op-period">All time</span>
+              <span className="op-period">{t("home.allTime")}</span>
             </div>
             <div className="op-delivery-content">
               <DonutChart
@@ -353,7 +358,7 @@ export default function Index() {
                 {DELIVERY_STATES.map((state) => (
                   <div className="op-legend-row" key={state.key}>
                     <span className={`op-dot op-dot-${state.key}`} />
-                    <span>{state.label}</span>
+                    <span>{t(state.labelKey)}</span>
                     <strong>
                       {analyticsUnavailable
                         ? "—"
@@ -368,10 +373,10 @@ export default function Index() {
                 ))}
                 <div className="op-delivery-note">
                   {analyticsUnavailable
-                    ? "Data temporarily unavailable"
+                    ? t("home.dataUnavailable")
                     : hasNotifications
-                      ? `${successRate}% of all attempts sent successfully`
-                      : "Your delivery stats will appear here."}
+                      ? t("home.successRate", { rate: successRate })
+                      : t("home.deliveryStatsWillAppear")}
                 </div>
               </div>
             </div>
@@ -382,7 +387,7 @@ export default function Index() {
             aria-labelledby="op-automation-title"
           >
             <div className="op-panel-heading">
-              <h2 id="op-automation-title">Notification status</h2>
+              <h2 id="op-automation-title">{t("home.notificationStatus")}</h2>
               <span
                 className={`op-status ${analyticsUnavailable ? "op-status-unknown" : isEnabled ? "op-status-enabled" : "op-status-disabled"}`}
               >
@@ -397,20 +402,20 @@ export default function Index() {
             </span>
             <h3>
               {analyticsUnavailable
-                ? "Status temporarily unavailable"
+                ? t("home.statusUnavailableTitle")
                 : isEnabled
-                  ? "Order updates are enabled"
-                  : "Ready when you are"}
+                  ? t("home.statusEnabledTitle")
+                  : t("home.statusDisabledTitle")}
             </h3>
             <p>
               {analyticsUnavailable
-                ? "Refresh the page to check your notification settings."
+                ? t("home.statusUnavailableBody")
                 : isEnabled
-                  ? "Automatic WhatsApp updates are enabled for your selected order events."
-                  : "Turn on WhatsApp notifications in Settings to keep customers updated about their orders."}
+                  ? t("home.statusEnabledBody")
+                  : t("home.statusDisabledBody")}
             </p>
             <Link to="/app/settings" className="op-text-link">
-              {isEnabled ? "Manage settings" : "Open settings"}
+              {isEnabled ? t("home.manageSettings") : t("home.openSettings")}
               <Icon name="arrow" size={16} />
             </Link>
           </section>
@@ -422,30 +427,30 @@ export default function Index() {
               <Icon name="chat" size={20} />
             </span>
             <div>
-              <strong>Your first notification starts here</strong>
+              <strong>{t("home.firstNotificationTitle")}</strong>
               <p>
                 {isEnabled
-                  ? "Notifications will appear here when a selected order event triggers a message."
-                  : "Enable notifications and choose the order updates you want to send in Settings."}
+                  ? t("home.firstNotificationEnabled")
+                  : t("home.firstNotificationDisabled")}
               </p>
             </div>
           </div>
         )}
 
-        <nav className="op-quick-links" aria-label="Dashboard shortcuts">
+        <nav className="op-quick-links" aria-label={t("home.quickLinksAria")}>
           <QuickLink
             to="/app/notifications"
             icon="document"
-            title="Notification log"
+            title={t("home.notificationLog")}
           >
-            Track send attempts and investigate errors.
+            {t("home.notificationLogDesc")}
           </QuickLink>
           <QuickLink
             to="/app/settings"
             icon="settings"
-            title="WhatsApp settings"
+            title={t("settings.heading")}
           >
-            Choose your messaging mode and order updates.
+            {t("home.whatsappSettingsDesc")}
           </QuickLink>
         </nav>
       </div>

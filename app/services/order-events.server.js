@@ -1,7 +1,9 @@
 import db from "../db.server";
-import { sendTemplateMessage } from "./whatsapp.server";
+import { sendTemplateMessageWithFallback } from "./whatsapp.server";
 import { hasNotificationPlan } from "./billing.server";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
+import { resolveSendLocale } from "../i18n/locale-send.server";
+import { templateLanguageCode } from "../i18n/messageTemplates";
 
 export function getPhoneFromOrder(order) {
   if (order?.phone) return order.phone;
@@ -69,26 +71,29 @@ export function normalizePhone(raw, defaultCountry) {
   }
 }
 
-// Every merchant must create a template with this exact name (category
-// Utility, language English (US)) in their own Meta Business Account for
-// each event type to be sent — we can't approve templates on their behalf,
-// so the name has to be a fixed, documented contract rather than something
-// configurable per shop. See REQUIRED_TEMPLATES below for the full list.
-// `settingKey` is the AppSetting key a shop can set to "false" to turn that
-// specific notification type off, independent of the master ENABLED toggle —
-// see the "Notification types" section on the Settings page.
+// Every merchant must create a template with this exact name in their own
+// Meta Business Account for each event type to be sent — we can't approve
+// templates on their behalf, so the name has to be a fixed, documented
+// contract rather than something configurable per shop. See
+// REQUIRED_TEMPLATES below for the full list. `settingKey` is the AppSetting
+// key a shop can set to "false" to turn that specific notification type off,
+// independent of the master ENABLED toggle — see the "Notification types"
+// section on the Settings page.
+//
+// The actual Meta `language` code used at send time is resolved per shop
+// (see resolveSendLocale + templateLanguageCode below), not fixed here —
+// each name now has English, French, Spanish, German and Italian variants
+// approved in the managed WABA; custom-mode merchants must match whichever
+// language their shop sends in, per the Settings page's template table.
 export const REQUIRED_TEMPLATES = {
-  orderConfirmation: { name: "order_confirmation_image", language: "en_US", settingKey: "NOTIFY_ORDER_CONFIRMATION" },
-  // These 7 are approved in Meta under "English" (en), not "English (US)"
-  // (en_US) like order_confirmation_image — must match exactly or Meta
-  // rejects the send with "Template name does not exist in the translation".
-  shipped: { name: "order_shipped", language: "en", settingKey: "NOTIFY_SHIPPED" },
-  outForDelivery: { name: "order_out_for_delivery", language: "en", settingKey: "NOTIFY_OUT_FOR_DELIVERY" },
-  delivered: { name: "order_delivered", language: "en", settingKey: "NOTIFY_DELIVERED" },
-  refundInitiated: { name: "order_refund_initiated", language: "en", settingKey: "NOTIFY_REFUND_INITIATED" },
-  cancelled: { name: "order_cancelled", language: "en", settingKey: "NOTIFY_CANCELLED" },
-  paid: { name: "order_paid", language: "en", settingKey: "NOTIFY_PAID" },
-  partiallyFulfilled: { name: "order_partially_fulfilled", language: "en", settingKey: "NOTIFY_PARTIALLY_FULFILLED" },
+  orderConfirmation: { name: "order_confirmation_image", settingKey: "NOTIFY_ORDER_CONFIRMATION" },
+  shipped: { name: "order_shipped", settingKey: "NOTIFY_SHIPPED" },
+  outForDelivery: { name: "order_out_for_delivery", settingKey: "NOTIFY_OUT_FOR_DELIVERY" },
+  delivered: { name: "order_delivered", settingKey: "NOTIFY_DELIVERED" },
+  refundInitiated: { name: "order_refund_initiated", settingKey: "NOTIFY_REFUND_INITIATED" },
+  cancelled: { name: "order_cancelled", settingKey: "NOTIFY_CANCELLED" },
+  paid: { name: "order_paid", settingKey: "NOTIFY_PAID" },
+  partiallyFulfilled: { name: "order_partially_fulfilled", settingKey: "NOTIFY_PARTIALLY_FULFILLED" },
 };
 
 /**
@@ -155,7 +160,8 @@ export async function sendOrderStatusNotification({
   }
 
   const templateName = template.name;
-  const templateLanguage = template.language;
+  const sendLocale = await resolveSendLocale(shop, settings);
+  const templateLanguage = templateLanguageCode(templateName, sendLocale);
 
   // Falls back to the developer's own WhatsApp credentials (env vars) only for
   // stores that haven't entered their own yet in Settings.
@@ -195,10 +201,11 @@ export async function sendOrderStatusNotification({
   }
 
   try {
-    const result = await sendTemplateMessage({
+    const result = await sendTemplateMessageWithFallback({
       to: phone,
       templateName,
       language: templateLanguage,
+      fallbackLanguage: templateLanguageCode(templateName, "en"),
       accessToken: credentials.accessToken,
       phoneNumberId: credentials.phoneNumberId,
       apiVersion: credentials.apiVersion,
