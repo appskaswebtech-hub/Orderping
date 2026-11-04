@@ -163,12 +163,17 @@ export async function sendOrderStatusNotification({
   const sendLocale = await resolveSendLocale(shop, settings);
   const templateLanguage = templateLanguageCode(templateName, sendLocale);
 
-  // Falls back to the developer's own WhatsApp credentials (env vars) only for
-  // stores that haven't entered their own yet in Settings.
+  // Use the shop's own Meta credentials only in "custom" mode. Settings'
+  // custom-credential fields stay in the DOM (just visually hidden) when a
+  // shop is on "managed" mode, so a value saved there from before a mode
+  // switch must never override the managed defaults just because it's
+  // present — gate on MESSAGING_MODE explicitly rather than only on whether
+  // a value happens to exist.
+  const useCustomCredentials = settings.MESSAGING_MODE === "custom";
   const credentials = {
-    accessToken: settings.META_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN || undefined,
-    phoneNumberId: settings.META_PHONE_NUMBER_ID || process.env.META_PHONE_NUMBER_ID || undefined,
-    apiVersion: settings.META_API_VERSION || process.env.META_API_VERSION || undefined,
+    accessToken: (useCustomCredentials && settings.META_ACCESS_TOKEN) || process.env.META_ACCESS_TOKEN || undefined,
+    phoneNumberId: (useCustomCredentials && settings.META_PHONE_NUMBER_ID) || process.env.META_PHONE_NUMBER_ID || undefined,
+    apiVersion: (useCustomCredentials && settings.META_API_VERSION) || process.env.META_API_VERSION || undefined,
   };
 
   if (!rawPhone) {
