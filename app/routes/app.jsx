@@ -4,15 +4,15 @@ import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
 import '../style/design.css';
 import SupportChatWidget from "../components/SupportChatWidget.jsx";
-import { resolveLocale } from "../i18n/locale.server";
+import { resolveSendLocale } from "../i18n/locale-send.server";
 import { LanguageProvider, useTranslation } from "../i18n/LanguageContext";
 
 // No billing gate here — it's per-page (see requireActivePlan in
 // services/billing.server.js) so the Billing page itself doesn't redirect to
 // itself in a loop.
 export const loader = async ({ request }) => {
-  const { admin, session } = await authenticate.admin(request);
-  const locale = await resolveLocale({ admin, shop: session?.shop });
+  const { session } = await authenticate.admin(request);
+  const locale = await resolveSendLocale(session?.shop);
 
   // eslint-disable-next-line no-undef
   return { apiKey: process.env.SHOPIFY_API_KEY || "", locale };

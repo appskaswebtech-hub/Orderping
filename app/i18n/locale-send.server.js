@@ -7,12 +7,28 @@ function mapShopLocaleToSupported(primaryLocale) {
   return SUPPORTED_LOCALES.includes(base) ? base : "en";
 }
 
-// Webhook handlers have no authenticated `admin` GraphQL client (unlike
-// embedded app routes), only the shop's stored offline access token — so
-// this resolves the send language via the REST Admin API instead of
-// `resolveLocale` in locale.server.js, which is for the embedded UI only.
+// Resolves the shop's active language for both the embedded admin UI and
+// outbound WhatsApp sends, via the REST Admin API rather than GraphQL —
+// `Shop.primaryLocale` was removed from the GraphQL schema, and its
+// replacement (the `shopLocales` query) needs the `read_locales` scope,
+// which would force every merchant to re-consent to a new permission just
+// for this. REST's `shop.json` exposes `primary_locale` with no extra scope,
+// and webhook handlers have no authenticated `admin` GraphQL client anyway
+// (only the shop's stored offline access token), so this one implementation
+// covers both callers.
+//
+// `settings` is optional — pass it when the caller already loaded
+// db.appSetting rows (avoids a redundant query); omitted, it's fetched here.
 export async function resolveSendLocale(shop, settings) {
-  const uiLanguageSetting = settings?.UI_LANGUAGE;
+  let uiLanguageSetting = settings?.UI_LANGUAGE;
+  if (uiLanguageSetting === undefined) {
+    try {
+      const row = await db.appSetting.findUnique({ where: { shop_key: { shop, key: "UI_LANGUAGE" } } });
+      uiLanguageSetting = row?.value || null;
+    } catch (err) {
+      console.error(`[order-ping] failed to read UI_LANGUAGE setting for shop=${shop}`, err);
+    }
+  }
   if (uiLanguageSetting && SUPPORTED_LOCALES.includes(uiLanguageSetting)) {
     return uiLanguageSetting;
   }
