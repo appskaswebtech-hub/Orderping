@@ -1,4 +1,4 @@
-﻿import { Link, useLoaderData } from "react-router";
+﻿import { Link, useFetcher, useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { requireActivePlan } from "../services/billing.server";
@@ -43,6 +43,34 @@ export const loader = async ({ request }) => {
     console.error("Failed to load notification analytics", err);
   }
   return { stats, settings, analyticsUnavailable };
+};
+
+// Mirrors the ENABLED toggle on the Settings page action so merchants can
+// flip it right from the Overview page without a trip to Settings — same two
+// AppSetting keys, same semantics (ENABLED_OPT_IN_CONFIRMED is set alongside
+// ENABLED so this toggle alone is enough to actually turn sending on).
+export const action = async ({ request }) => {
+  const { session } = await authenticate.admin(request);
+  const shop = session?.shop;
+  if (!shop) return new Response(null, { status: 400 });
+
+  const form = await request.formData();
+  const enabled = form.get("ENABLED") === "on" ? "true" : "false";
+
+  const upsert = (key, value) =>
+    db.appSetting.upsert({
+      where: { shop_key: { shop, key } },
+      update: { value },
+      create: { shop, key, value },
+    });
+
+  await upsert("ENABLED", enabled);
+  await upsert("ENABLED_OPT_IN_CONFIRMED", "true");
+
+  return new Response(JSON.stringify({ saved: true }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
 };
 
 const DELIVERY_STATES = [
@@ -212,15 +240,21 @@ function QuickLink({ to, icon, title, children }) {
 export default function Index() {
   const { t } = useTranslation();
   const { stats, settings, analyticsUnavailable = false } = useLoaderData();
+  const enableFetcher = useFetcher();
   const analytics = stats || {
     totalNotifications: 0,
     sent: 0,
     failed: 0,
     pending: 0,
   };
-  const isEnabled =
-    settings?.ENABLED === "true" &&
-    settings?.ENABLED_OPT_IN_CONFIRMED === "true";
+  // Optimistic: reflect the toggle the instant it's clicked rather than
+  // waiting for the round trip, falling back to the loaded value once idle.
+  const isEnabled = enableFetcher.formData
+    ? enableFetcher.formData.get("ENABLED") === "on"
+    : settings?.ENABLED === "true" && settings?.ENABLED_OPT_IN_CONFIRMED === "true";
+  const onToggleEnabled = () => {
+    enableFetcher.submit({ ENABLED: isEnabled ? "off" : "on" }, { method: "post" });
+  };
   const hasNotifications = analytics.totalNotifications > 0;
   const status = analyticsUnavailable
     ? t("home.statusUnavailable")
@@ -298,6 +332,28 @@ export default function Index() {
           <div className="op-load-alert" role="alert">
             <Icon name="alert" size={18} />
             <span>{t("home.loadError")}</span>
+          </div>
+        )}
+
+        {!analyticsUnavailable && (
+          <div className={`op-enable-banner ${isEnabled ? "op-enable-banner-on" : "op-enable-banner-off"}`}>
+            <span className="op-enable-banner-icon">
+              <Icon name="bolt" size={22} />
+            </span>
+            <div className="op-enable-banner-copy">
+              <strong>{t("home.enableBannerTitle")}</strong>
+              <p>{isEnabled ? t("home.enableBannerOnBody") : t("home.enableBannerOffBody")}</p>
+            </div>
+            <label className="op-switch op-enable-banner-switch">
+              <input
+                type="checkbox"
+                checked={isEnabled}
+                disabled={enableFetcher.state !== "idle"}
+                onChange={onToggleEnabled}
+                aria-label={t("home.enableBannerTitle")}
+              />
+              <span className="op-switch-track" />
+            </label>
           </div>
         )}
 

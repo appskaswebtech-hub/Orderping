@@ -170,6 +170,9 @@ const en = {
   "home.notificationsLabel": "Notifications",
   "home.deliveryDataUnavailable": "Delivery data unavailable",
   "home.summaryAria": "{total} notifications: {sent} sent, {failed} failed, {pending} pending",
+  "home.enableBannerTitle": "Enable WhatsApp notifications",
+  "home.enableBannerOnBody": "You're all set — customers are getting order updates on WhatsApp.",
+  "home.enableBannerOffBody": "Turn this on to start sending order updates to your customers on WhatsApp.",
 
   "billing.kicker": "BUILT TO GROW WITH YOU",
   "billing.heading": "Plans & billing",
@@ -480,6 +483,9 @@ const fr = {
   "home.notificationsLabel": "Notifications",
   "home.deliveryDataUnavailable": "Données de livraison indisponibles",
   "home.summaryAria": "{total} notifications : {sent} envoyées, {failed} échouées, {pending} en attente",
+  "home.enableBannerTitle": "Activer les notifications WhatsApp",
+  "home.enableBannerOnBody": "Tout est prêt — vos clients reçoivent les mises à jour de commande sur WhatsApp.",
+  "home.enableBannerOffBody": "Activez cette option pour commencer à envoyer des mises à jour de commande à vos clients sur WhatsApp.",
 
   "billing.kicker": "CONÇU POUR GRANDIR AVEC VOUS",
   "billing.heading": "Forfaits et facturation",
@@ -790,6 +796,9 @@ const es = {
   "home.notificationsLabel": "Notificaciones",
   "home.deliveryDataUnavailable": "Datos de entrega no disponibles",
   "home.summaryAria": "{total} notificaciones: {sent} enviadas, {failed} fallidas, {pending} pendientes",
+  "home.enableBannerTitle": "Activar notificaciones de WhatsApp",
+  "home.enableBannerOnBody": "Todo listo — tus clientes están recibiendo actualizaciones de pedido por WhatsApp.",
+  "home.enableBannerOffBody": "Actívalo para empezar a enviar actualizaciones de pedido a tus clientes por WhatsApp.",
 
   "billing.kicker": "CREADO PARA CRECER CONTIGO",
   "billing.heading": "Planes y facturación",
@@ -1100,6 +1109,9 @@ const de = {
   "home.notificationsLabel": "Benachrichtigungen",
   "home.deliveryDataUnavailable": "Zustelldaten nicht verfügbar",
   "home.summaryAria": "{total} Benachrichtigungen: {sent} gesendet, {failed} fehlgeschlagen, {pending} ausstehend",
+  "home.enableBannerTitle": "WhatsApp-Benachrichtigungen aktivieren",
+  "home.enableBannerOnBody": "Alles bereit — Ihre Kunden erhalten Bestellaktualisierungen über WhatsApp.",
+  "home.enableBannerOffBody": "Aktivieren Sie dies, um Ihren Kunden Bestellaktualisierungen über WhatsApp zu senden.",
 
   "billing.kicker": "ENTWICKELT, UM MIT IHNEN ZU WACHSEN",
   "billing.heading": "Tarife & Abrechnung",
@@ -1410,6 +1422,9 @@ const it = {
   "home.notificationsLabel": "Notifiche",
   "home.deliveryDataUnavailable": "Dati di consegna non disponibili",
   "home.summaryAria": "{total} notifiche: {sent} inviate, {failed} non riuscite, {pending} in sospeso",
+  "home.enableBannerTitle": "Attiva le notifiche WhatsApp",
+  "home.enableBannerOnBody": "Tutto pronto — i tuoi clienti ricevono gli aggiornamenti dell'ordine su WhatsApp.",
+  "home.enableBannerOffBody": "Attivalo per iniziare a inviare aggiornamenti dell'ordine ai tuoi clienti su WhatsApp.",
 
   "billing.kicker": "PENSATO PER CRESCERE CON TE",
   "billing.heading": "Piani e fatturazione",
